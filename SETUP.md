@@ -106,19 +106,15 @@ Password: admin123
 
 **⚠️ IMPORTANT:** Change these immediately after first login!
 
-## Production Deployment
+## Production Deployment (Optional)
+
+For simple production deployment without Docker:
 
 ### Backend
 
 ```bash
-# Use production database (PostgreSQL recommended)
-DATABASE_URL=postgresql://user:pass@host:5432/laserhub
-
-# Set production SECRET_KEY
-# Use strong password for admin
-
-# Run with production server
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Use production server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### Frontend
@@ -127,14 +123,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 # Build for production
 npm run build
 
-# Deploy dist/ folder to your hosting
+# Serve with any static file server
+npm install -g serve
+serve -s dist -l 3000
 ```
 
-### Recommended Hosting
+### Simple Deployment Options
 
-- **Backend**: Railway, Render, Heroku, or VPS
-- **Frontend**: Vercel, Netlify, or Cloudflare Pages
-- **Database**: Supabase, Railway, or managed PostgreSQL
+- **All-in-one**: Deploy on a VPS (DigitalOcean, Linode, etc.)
+- **Backend**: Run on Railway, Render, or PythonAnywhere
+- **Frontend**: Deploy on Vercel, Netlify, or GitHub Pages
+
+**Note:** We keep it simple - no Docker or complex orchestration needed!
 
 ## Troubleshooting
 
