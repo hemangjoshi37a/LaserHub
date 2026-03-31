@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     CUT_SPEED_MM_PER_MIN: float = 500.0
 
     # File Upload
-    ALLOWED_EXTENSIONS: List[str] = ["dxf", "svg", "ai", "pdf", "eps"]
+    ALLOWED_EXTENSIONS: str = "dxf,svg,ai,pdf,eps"
 
     # CORS
     FRONTEND_URL: str = "http://localhost:5173"

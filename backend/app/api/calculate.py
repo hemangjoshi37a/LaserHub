@@ -41,9 +41,11 @@ async def calculate_cost(
             detail="File analysis not available. Please re-upload the file."
         )
 
-    # Get material
+    # Get material with configs
     result = await db.execute(
-        select(Material).where(Material.id == request.material_id)
+        select(Material)
+        .where(Material.id == request.material_id)
+        .options(selectinload(Material.configs))
     )
     material = result.scalar_one_or_none()
 
@@ -53,21 +55,26 @@ async def calculate_cost(
     if not material.is_active:
         raise HTTPException(status_code=400, detail="Material is not available")
 
-    # Validate thickness
-    import json
-    available_thicknesses = json.loads(material.available_thicknesses or "[]")
-    if available_thicknesses and request.thickness_mm not in available_thicknesses:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Thickness not available. Available: {available_thicknesses}"
-        )
+    # Find specific config for this thickness
+    config = next((c for c in material.configs if c.thickness_mm == request.thickness_mm), None)
+    
+    if config and not config.is_in_stock:
+        raise HTTPException(status_code=400, detail=f"Material with thickness {request.thickness_mm}mm is currently out of stock")
 
-    # Calculate cost
-    cost_data = calculate_total_cost(
+    # Fallback to general rate if no specific config found
+    rate_per_cm2 = config.rate_per_cm2 if config else (material.rate_per_cm2_mm * request.thickness_mm)
+    cut_speed = config.cut_speed_mm_min if config else settings.CUT_SPEED_MM_PER_MIN
+
+    # Calculate cost using the service
+    # We'll need to update calculate_total_cost to accept these new parameters
+    from app.services.cost_calculator import calculate_total_cost_v2
+    
+    cost_data = calculate_total_cost_v2(
         area_cm2=uploaded_file.area_cm2,
         cut_length_mm=uploaded_file.cut_length_mm,
         thickness_mm=request.thickness_mm,
-        material_rate=material.rate_per_cm2_mm,
+        rate_per_cm2=rate_per_cm2,
+        cut_speed_mm_min=cut_speed,
         quantity=request.quantity,
     )
 

@@ -17,13 +17,13 @@ export const HomePage: React.FC = () => {
   };
 
   const handleOrderSuccess = () => {
-    setStep(4);
+    setStep(5);
   };
 
   return (
     <div className="home-page">
       <header className="hero">
-        <h1>LaserHub</h1>
+        <h1>⚡LaserHub</h1>
         <p>Instant Laser Cutting Cost Calculator</p>
         <p className="hero-subtitle">
           Upload your vector files, select material, and get instant pricing
@@ -54,7 +54,7 @@ export const HomePage: React.FC = () => {
 
       <main className="main-content">
         {step === 1 && (
-          <div className="step-content">
+          <div className="step-content animate-in">
             <FileUpload />
             {uploadedFile && (
               <button
@@ -69,7 +69,7 @@ export const HomePage: React.FC = () => {
         )}
 
         {step === 2 && (
-          <div className="step-content">
+          <div className="step-content animate-in">
             <MaterialSelector />
             <div className="step-buttons">
               <button className="back-btn" onClick={() => setStep(1)}>
@@ -88,7 +88,7 @@ export const HomePage: React.FC = () => {
         )}
 
         {step === 3 && (
-          <div className="step-content">
+          <div className="step-content animate-in">
             <CostDisplay onCalculateComplete={handleCalculateComplete} />
             <div className="step-buttons">
               <button className="back-btn" onClick={() => setStep(2)}>
@@ -108,7 +108,7 @@ export const HomePage: React.FC = () => {
         )}
 
         {step === 4 && (
-          <div className="step-content">
+          <div className="step-content animate-in">
             <OrderForm onSuccess={handleOrderSuccess} />
             <div className="step-buttons">
               <button className="back-btn" onClick={() => setStep(3)}>
@@ -118,8 +118,8 @@ export const HomePage: React.FC = () => {
           </div>
         )}
 
-        {step === 4 && costEstimate && (
-          <div className="success-message">
+        {step === 5 && (
+          <div className="success-message animate-in">
             <CheckCircle size={64} className="success-icon" />
             <h2>Order Placed Successfully!</h2>
             <p>Thank you for your order. We'll contact you soon.</p>

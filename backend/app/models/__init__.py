@@ -39,9 +39,11 @@ class Material(Base):
     available_thicknesses = Column(Text)  # JSON string of thickness values
     description = Column(Text)
     is_active = Column(Boolean, default=True)
+    color_hex = Column(String, default="#0ea5e9")  # Material color for UI
     created_at = Column(DateTime, default=datetime.utcnow)
 
     orders = relationship("Order", back_populates="material")
+    configs = relationship("MaterialConfig", back_populates="material", cascade="all, delete-orphan")
 
     @property
     def thicknesses_list(self) -> list:
@@ -55,6 +57,20 @@ class Material(Base):
             except (json.JSONDecodeError, TypeError):
                 return []
         return self.available_thicknesses if isinstance(self.available_thicknesses, list) else []
+
+
+class MaterialConfig(Base):
+    """Granular configuration for material + thickness combination"""
+    __tablename__ = "material_configs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
+    thickness_mm = Column(Float, nullable=False)
+    rate_per_cm2 = Column(Float, nullable=False)  # Custom rate for this thickness
+    cut_speed_mm_min = Column(Float, nullable=False)  # Speed for this thickness
+    is_in_stock = Column(Boolean, default=True)
+    
+    material = relationship("Material", back_populates="configs")
 
 
 class UploadedFile(Base):

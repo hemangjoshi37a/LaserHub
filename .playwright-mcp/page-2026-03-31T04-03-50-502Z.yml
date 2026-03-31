@@ -1,0 +1,90 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e10]
+          - text: Admin
+        - button "Toggle theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e78]
+  - main [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - heading "LaserHub" [level=1] [ref=e19]
+        - paragraph [ref=e20]: Instant Laser Cutting Cost Calculator
+        - paragraph [ref=e21]: Upload your vector files, select material, and get instant pricing
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: "1"
+          - text: Upload
+        - img [ref=e25]
+        - generic [ref=e27]:
+          - generic [ref=e28]: "2"
+          - text: Configure
+        - img [ref=e29]
+        - generic [ref=e31]:
+          - generic [ref=e32]: "3"
+          - text: Review
+        - img [ref=e33]
+        - generic [ref=e35]:
+          - generic [ref=e36]: "4"
+          - text: Order
+      - main [ref=e37]:
+        - generic [ref=e283]:
+          - generic [ref=e284]:
+            - heading "Customer Information" [level=2] [ref=e285]
+            - generic [ref=e286]:
+              - generic [ref=e287]:
+                - generic [ref=e288]:
+                  - img [ref=e289]
+                  - text: Full Name
+                - textbox "John Doe" [ref=e292]: Jane Smith
+              - generic [ref=e293]:
+                - generic [ref=e294]:
+                  - img [ref=e295]
+                  - text: Email Address
+                - textbox "john@example.com" [ref=e298]: jane@example.com
+              - generic [ref=e299]:
+                - generic [ref=e300]:
+                  - img [ref=e301]
+                  - text: Shipping Address
+                - textbox "123 Main St, City, State 12345" [ref=e304]: 456 Oak Ave, Industrial Park, NY 10001
+              - generic [ref=e305]:
+                - generic [ref=e306]:
+                  - generic [ref=e307]: "Subtotal:"
+                  - generic [ref=e308]: $5825.90
+                - generic [ref=e309]:
+                  - generic [ref=e310]: "Tax:"
+                  - generic [ref=e311]: $466.07
+                - generic [ref=e312]:
+                  - generic [ref=e313]: "Total:"
+                  - generic [ref=e314]: $6291.97
+              - button "Proceed to Payment" [ref=e315] [cursor=pointer]:
+                - img [ref=e316]
+                - text: Proceed to Payment
+          - button "Back" [ref=e319] [cursor=pointer]
+        - generic [ref=e320]:
+          - img [ref=e321]
+          - heading "Order Placed Successfully!" [level=2] [ref=e324]
+          - paragraph [ref=e325]: Thank you for your order. We'll contact you soon.
+          - button "Start New Order" [ref=e326] [cursor=pointer]
+  - contentinfo [ref=e49]:
+    - paragraph [ref=e50]: © 2026 LaserHub. Open Source Laser Cutting Cost Calculator.
+    - paragraph [ref=e51]:
+      - link "GitHub" [ref=e52] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub
+      - text: •
+      - link "Contribute" [ref=e53] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub/blob/main/CONTRIBUTING.md
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e327]:
+        - img [ref=e329]
+        - generic [ref=e331]:
+          - generic [ref=e332]: Order creation failed
+          - generic [ref=e333]: "You did not provide an API key. You need to provide your API key in the Authorization header, using Bearer auth (e.g. 'Authorization: Bearer YOUR_SECRET_KEY'). See https://stripe.com/docs/api#authentication for details, or we can help at https://support.stripe.com/."

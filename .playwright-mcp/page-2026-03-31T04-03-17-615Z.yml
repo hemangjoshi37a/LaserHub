@@ -1,0 +1,122 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e10]
+          - text: Admin
+        - button "Toggle theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e78]
+  - main [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - heading "LaserHub" [level=1] [ref=e19]
+        - paragraph [ref=e20]: Instant Laser Cutting Cost Calculator
+        - paragraph [ref=e21]: Upload your vector files, select material, and get instant pricing
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: "1"
+          - text: Upload
+        - img [ref=e25]
+        - generic [ref=e27]:
+          - generic [ref=e28]: "2"
+          - text: Configure
+        - img [ref=e29]
+        - generic [ref=e31]:
+          - generic [ref=e32]: "3"
+          - text: Review
+        - img [ref=e33]
+        - generic [ref=e35]:
+          - generic [ref=e36]: "4"
+          - text: Order
+      - main [ref=e37]:
+        - generic [ref=e84]:
+          - generic [ref=e85]:
+            - heading "Select Material & Specifications" [level=2] [ref=e86]
+            - generic [ref=e87]:
+              - generic [ref=e88] [cursor=pointer]:
+                - img [ref=e89]
+                - heading "Acrylic (Clear)" [level=3] [ref=e93]
+                - paragraph [ref=e94]: acrylic
+                - paragraph [ref=e95]: $0.05/cm²/mm
+                - paragraph [ref=e96]: Crystal clear acrylic, perfect for signs and displays
+              - generic [ref=e97] [cursor=pointer]:
+                - img [ref=e98]
+                - heading "Acrylic (Black)" [level=3] [ref=e102]
+                - paragraph [ref=e103]: acrylic
+                - paragraph [ref=e104]: $0.055/cm²/mm
+                - paragraph [ref=e105]: Opaque black acrylic for elegant designs
+              - generic [ref=e106] [cursor=pointer]:
+                - img [ref=e107]
+                - heading "MDF Wood" [level=3] [ref=e111]
+                - paragraph [ref=e112]: wood mdf
+                - paragraph [ref=e113]: $0.03/cm²/mm
+                - paragraph [ref=e114]: Medium density fiberboard, great for engraving
+              - generic [ref=e115] [cursor=pointer]:
+                - img [ref=e116]
+                - heading "Baltic Birch Plywood" [level=3] [ref=e120]
+                - paragraph [ref=e121]: plywood
+                - paragraph [ref=e122]: $0.04/cm²/mm
+                - paragraph [ref=e123]: High quality plywood with clean edges
+              - generic [ref=e124] [cursor=pointer]:
+                - img [ref=e125]
+                - heading "Genuine Leather" [level=3] [ref=e129]
+                - paragraph [ref=e130]: leather
+                - paragraph [ref=e131]: $0.08/cm²/mm
+                - paragraph [ref=e132]: Premium leather for wallets, belts, and accessories
+              - generic [ref=e133] [cursor=pointer]:
+                - img [ref=e134]
+                - heading "Cardstock" [level=3] [ref=e138]
+                - paragraph [ref=e139]: paper
+                - paragraph [ref=e140]: $0.02/cm²/mm
+                - paragraph [ref=e141]: Heavy weight paper for intricate cut designs
+              - generic [ref=e142] [cursor=pointer]:
+                - img [ref=e143]
+                - heading "Aluminum Sheet" [level=3] [ref=e147]
+                - paragraph [ref=e148]: aluminum
+                - paragraph [ref=e149]: $0.15/cm²/mm
+                - paragraph [ref=e150]: Thin aluminum for marking and light cutting
+              - generic [ref=e151] [cursor=pointer]:
+                - img [ref=e152]
+                - heading "Stainless Steel" [level=3] [ref=e156]
+                - paragraph [ref=e157]: stainless steel
+                - paragraph [ref=e158]: $0.25/cm²/mm
+                - paragraph [ref=e159]: Premium stainless steel for durable parts
+            - generic [ref=e160]:
+              - generic [ref=e161]:
+                - generic [ref=e162]:
+                  - img [ref=e163]
+                  - text: Thickness (mm)
+                - generic [ref=e169]:
+                  - button "2mm" [ref=e170] [cursor=pointer]
+                  - button "3mm" [ref=e171] [cursor=pointer]
+                  - button "5mm" [ref=e172] [cursor=pointer]
+                  - button "6mm" [ref=e173] [cursor=pointer]
+                  - button "10mm" [ref=e174] [cursor=pointer]
+              - generic [ref=e175]:
+                - generic [ref=e176]:
+                  - img [ref=e177]
+                  - text: Quantity
+                - generic [ref=e181]:
+                  - button "-" [disabled] [ref=e182]
+                  - spinbutton [ref=e183]: "1"
+                  - button "+" [ref=e184] [cursor=pointer]
+          - generic [ref=e185]:
+            - button "Back" [ref=e186] [cursor=pointer]
+            - 'button "Next: Review Cost" [ref=e187] [cursor=pointer]':
+              - text: "Next: Review Cost"
+              - img [ref=e188]
+  - contentinfo [ref=e49]:
+    - paragraph [ref=e50]: © 2026 LaserHub. Open Source Laser Cutting Cost Calculator.
+    - paragraph [ref=e51]:
+      - link "GitHub" [ref=e52] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub
+      - text: •
+      - link "Contribute" [ref=e53] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub/blob/main/CONTRIBUTING.md
+  - region "Notifications alt+T"

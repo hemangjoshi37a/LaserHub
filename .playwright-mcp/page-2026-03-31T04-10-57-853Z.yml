@@ -1,0 +1,37 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e10]
+          - text: Admin
+        - button "Toggle theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+  - main [ref=e20]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - img [ref=e24]
+        - heading "Admin Login" [level=1] [ref=e27]
+        - paragraph [ref=e28]: LaserHub Administration
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]: Email
+          - textbox "admin@laserhub.com" [ref=e32]
+        - generic [ref=e33]:
+          - generic [ref=e34]: Password
+          - textbox "••••••••" [ref=e35]
+        - button "Login" [ref=e36] [cursor=pointer]
+  - contentinfo [ref=e37]:
+    - paragraph [ref=e38]: © 2026 LaserHub. Open Source Laser Cutting Cost Calculator.
+    - paragraph [ref=e39]:
+      - link "GitHub" [ref=e40] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub
+      - text: •
+      - link "Contribute" [ref=e41] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub/blob/main/CONTRIBUTING.md
+  - region "Notifications alt+T"

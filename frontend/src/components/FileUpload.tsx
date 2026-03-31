@@ -57,8 +57,12 @@ export const FileUpload: React.FC = () => {
     setFileAnalysis(null);
   };
 
+  const isSvg = uploadedFile?.file_type === 'svg';
+  const isDxf = uploadedFile?.file_type === 'dxf';
+  const previewUrl = uploadedFile ? `/api/upload/${uploadedFile.file_id}/raw` : null;
+
   return (
-    <div className="upload-container">
+    <div className="upload-container animate-in">
       <h2>Upload Your Design</h2>
       <p className="upload-description">
         Support for DXF, SVG, AI, PDF, and EPS files
@@ -77,29 +81,44 @@ export const FileUpload: React.FC = () => {
               <p>Uploading and analyzing...</p>
             </div>
           ) : isDragActive ? (
-            <p>Drop your file here...</p>
+            <div className="dropzone-content">
+              <Upload size={32} />
+              <p>Drop your file here...</p>
+            </div>
           ) : (
-            <>
+            <div className="dropzone-content">
+              <Upload size={48} />
               <p>Drag & drop your file here, or click to browse</p>
               <p className="file-types">DXF • SVG • AI • PDF • EPS</p>
-            </>
+            </div>
           )}
         </div>
       ) : (
-        <div className="uploaded-file">
-          <div className="file-info">
-            <File size={32} />
-            <div className="file-details">
-              <p className="filename">{uploadedFile.filename}</p>
-              <p className="file-size">
-                {(uploadedFile.file_size / 1024).toFixed(1)} KB • {uploadedFile.file_type.toUpperCase()}
-              </p>
+        <div className="uploaded-file-container animate-in">
+          {(isSvg || isDxf) && previewUrl && (
+            <div className="file-preview-canvas animate-in">
+              <img src={previewUrl} alt="Design Preview" />
             </div>
-            <CheckCircle size={24} className="success-icon" />
+          )}
+          <div className="uploaded-file animate-in">
+            <div className="file-info">
+              <File size={32} />
+              <div className="file-details">
+                <p className="filename">{uploadedFile.filename}</p>
+                <p className="file-size">
+                  {(uploadedFile.file_size / 1024).toFixed(1)} KB • {uploadedFile.file_type.toUpperCase()}
+                </p>
+              </div>
+              <CheckCircle size={24} className="success-icon" />
+            </div>
+            <button 
+              onClick={handleRemove} 
+              className="remove-btn"
+              aria-label="Remove file"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <button onClick={handleRemove} className="remove-btn">
-            <X size={20} />
-          </button>
         </div>
       )}
     </div>

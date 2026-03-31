@@ -29,6 +29,25 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+# Material Config Schemas
+class MaterialConfigBase(BaseModel):
+    thickness_mm: float
+    rate_per_cm2: float
+    cut_speed_mm_min: float
+    is_in_stock: bool = True
+
+
+class MaterialConfigCreate(MaterialConfigBase):
+    material_id: int
+
+
+class MaterialConfigResponse(MaterialConfigBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # Material Schemas
 class MaterialBase(BaseModel):
     """Base material schema"""
@@ -37,6 +56,7 @@ class MaterialBase(BaseModel):
     rate_per_cm2_mm: float
     available_thicknesses: List[float]
     description: Optional[str] = None
+    color_hex: str = "#0ea5e9"
 
 
 class MaterialCreate(MaterialBase):
@@ -52,11 +72,15 @@ class MaterialUpdate(BaseModel):
     available_thicknesses: Optional[List[float]] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    color_hex: Optional[str] = None
 
 
 class MaterialResponse(MaterialBase):
     """Schema for material response"""
     id: int
+    configs: List[MaterialConfigResponse] = []
+    is_active: bool = True
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

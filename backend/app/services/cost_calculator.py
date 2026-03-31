@@ -150,23 +150,47 @@ def calculate_total_cost(
     }
 
 
-def get_material_rate(material_type: str) -> float:
+def calculate_total_cost_v2(
+    area_cm2: float,
+    cut_length_mm: float,
+    thickness_mm: float,
+    rate_per_cm2: float,
+    cut_speed_mm_min: float,
+    quantity: int = 1,
+    setup_fee: float = 5.0,
+    tax_rate: float = 0.08
+) -> Dict:
     """
-    Get material rate by type
-    
-    Args:
-        material_type: Type of material
-        
-    Returns:
-        Rate per cm² per mm
+    Calculate complete cost breakdown using specific thickness configuration
     """
-    rates = {
-        "acrylic": 0.05,
-        "wood_mdf": 0.03,
-        "plywood": 0.04,
-        "leather": 0.08,
-        "paper": 0.02,
-        "aluminum": 0.15,
-        "stainless_steel": 0.25,
+    # Calculate per-piece costs
+    material_cost = area_cm2 * rate_per_cm2
+
+    laser_time_minutes = calculate_laser_time(cut_length_mm, cut_speed_mm_min)
+    energy_cost = calculate_energy_cost(laser_time_minutes)
+
+    # Laser machine time cost
+    machine_rate_per_min = 0.50
+    laser_time_cost = laser_time_minutes * machine_rate_per_min
+
+    # Calculate totals
+    per_piece_subtotal = material_cost + laser_time_cost + energy_cost
+    subtotal = per_piece_subtotal * quantity + setup_fee
+    tax = subtotal * tax_rate
+    total = subtotal + tax
+
+    # Production time
+    total_cut_time_minutes = laser_time_minutes * quantity
+    total_production_time_hours = total_cut_time_minutes / 60
+
+    return {
+        "material_cost": round(material_cost * quantity, 2),
+        "laser_time_cost": round(laser_time_cost * quantity, 2),
+        "energy_cost": round(energy_cost * quantity, 2),
+        "setup_fee": round(setup_fee, 2),
+        "subtotal": round(subtotal, 2),
+        "tax": round(tax, 2),
+        "total": round(total, 2),
+        "estimated_production_time_hours": round(total_production_time_hours, 2),
+        "cut_time_per_piece_minutes": round(laser_time_minutes, 2),
     }
-    return rates.get(material_type.lower(), 0.05)

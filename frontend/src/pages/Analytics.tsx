@@ -72,24 +72,35 @@ export const Analytics: React.FC = () => {
   }
 
   return (
-    <div className="analytics-page">
+    <div className="analytics-page animate-in">
       <header className="analytics-header">
         <div className="header-left">
-          <button onClick={() => navigate('/admin')} className="back-btn-icon">
-            <ArrowLeft size={24} />
+          <button onClick={() => navigate('/admin')} className="back-btn-icon" style={{
+            background: 'var(--bg-tertiary)',
+            border: 'none',
+            padding: '0.6rem',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s'
+          }}>
+            <ArrowLeft size={20} />
           </button>
           <div style={{ marginLeft: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <BarChart2 size={24} color="#0ea5e9" />
-              <h1>Analytics Dashboard</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <BarChart2 size={28} color="var(--accent-color)" />
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Analytics</h1>
             </div>
-            <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Business insights and performance metrics</p>
+            <p style={{ color: 'var(--text-tertiary)', fontSize: '0.95rem', fontWeight: 500 }}>Business insights and performance metrics</p>
           </div>
         </div>
         <div className="analytics-actions">
           <button onClick={handleExport} className="export-btn">
             <Download size={18} />
-            Export CSV
+            Export Data
           </button>
         </div>
       </header>
@@ -97,17 +108,17 @@ export const Analytics: React.FC = () => {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon info">
-            <TrendingUp size={24} />
+            <TrendingUp size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Total Revenue</p>
-            <p className="stat-value">${data?.total_revenue.toFixed(2)}</p>
+            <p className="stat-value">${data?.total_revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon success">
-            <Package size={24} />
+            <Package size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Total Orders</p>
@@ -117,7 +128,7 @@ export const Analytics: React.FC = () => {
 
         <div className="stat-card">
           <div className="stat-icon warning">
-            <TrendingUp size={24} />
+            <TrendingUp size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Avg. Order Value</p>
@@ -127,37 +138,47 @@ export const Analytics: React.FC = () => {
       </div>
 
       <div className="charts-grid">
-        <div className="chart-card">
-          <h2>Revenue over Time (30 Days)</h2>
+        <div className="chart-card card">
+          <h3>Revenue over Time</h3>
           <div className="chart-container">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data?.sales_over_time}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                 <XAxis 
                   dataKey="date" 
-                  tick={{ fontSize: 12 }} 
+                  tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} 
                   tickFormatter={(value) => value.split('-').slice(1).join('/')}
+                  axisLine={{ stroke: 'var(--border-color)' }}
                 />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis 
+                  tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }}
+                  axisLine={{ stroke: 'var(--border-color)' }}
+                />
                 <Tooltip 
                   formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: '1px solid var(--border-color)', 
+                    boxShadow: 'var(--card-shadow)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)'
+                  }}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="revenue" 
-                  stroke="#0ea5e9" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: '#0ea5e9' }}
-                  activeDot={{ r: 6 }}
+                  stroke="var(--accent-color)" 
+                  strokeWidth={4} 
+                  dot={{ r: 4, fill: 'var(--accent-color)', strokeWidth: 2, stroke: 'var(--bg-primary)' }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="chart-card">
-          <h2>Popular Materials</h2>
+        <div className="chart-card card">
+          <h3>Popular Materials</h3>
           <div className="chart-container">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -168,6 +189,8 @@ export const Analytics: React.FC = () => {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
+                  innerRadius={60}
+                  paddingAngle={5}
                   label={({ material_name, percent }) => `${material_name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {data?.popular_materials.map((_, index) => (
@@ -182,51 +205,55 @@ export const Analytics: React.FC = () => {
       </div>
 
       <div className="analytics-tables">
-        <div className="table-card">
-          <h2>Top Customers</h2>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Orders</th>
-                <th className="value-cell">Total Spent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.top_customers.map((customer, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <div className="name-cell">{customer.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{customer.email}</div>
-                  </td>
-                  <td>{customer.order_count}</td>
-                  <td className="value-cell">${customer.total_spent.toFixed(2)}</td>
+        <div className="table-card card">
+          <h3>Top Customers</h3>
+          <div className="orders-table">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Orders</th>
+                  <th className="value-cell">Total Spent</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data?.top_customers.map((customer, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <div className="name-cell" style={{ fontWeight: 700 }}>{customer.name}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>{customer.email}</div>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{customer.order_count}</td>
+                    <td className="value-cell" style={{ color: 'var(--accent-color)', fontWeight: 800 }}>${customer.total_spent.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="table-card">
-          <h2>Material Performance</h2>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Orders</th>
-                <th className="value-cell">Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.popular_materials.map((material, idx) => (
-                <tr key={idx}>
-                  <td className="name-cell">{material.material_name}</td>
-                  <td>{material.count}</td>
-                  <td className="value-cell">${material.revenue.toFixed(2)}</td>
+        <div className="table-card card">
+          <h3>Material Performance</h3>
+          <div className="orders-table">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Orders</th>
+                  <th className="value-cell">Revenue</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data?.popular_materials.map((material, idx) => (
+                  <tr key={idx}>
+                    <td className="name-cell" style={{ fontWeight: 700 }}>{material.material_name}</td>
+                    <td style={{ fontWeight: 600 }}>{material.count}</td>
+                    <td className="value-cell" style={{ color: 'var(--accent-color)', fontWeight: 800 }}>${material.revenue.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

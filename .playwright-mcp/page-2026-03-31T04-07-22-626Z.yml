@@ -1,0 +1,54 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e9] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e10]
+          - text: Admin
+        - button "Toggle theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+  - main [ref=e20]:
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - heading "⚡LaserHub" [level=1] [ref=e23]
+        - paragraph [ref=e24]: Instant Laser Cutting Cost Calculator
+        - paragraph [ref=e25]: Upload your vector files, select material, and get instant pricing
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: "1"
+          - generic [ref=e29]: Upload
+        - img [ref=e30]
+        - generic [ref=e32]:
+          - generic [ref=e33]: "2"
+          - generic [ref=e34]: Configure
+        - img [ref=e35]
+        - generic [ref=e37]:
+          - generic [ref=e38]: "3"
+          - generic [ref=e39]: Review
+        - img [ref=e40]
+        - generic [ref=e42]:
+          - generic [ref=e43]: "4"
+          - generic [ref=e44]: Order
+      - main [ref=e45]:
+        - generic [ref=e47]:
+          - heading "Upload Your Design" [level=2] [ref=e48]
+          - paragraph [ref=e49]: Support for DXF, SVG, AI, PDF, and EPS files
+          - generic [ref=e50] [cursor=pointer]:
+            - button "Choose File" [ref=e51]
+            - img [ref=e52]
+            - paragraph [ref=e55]: Drag & drop your file here, or click to browse
+            - paragraph [ref=e56]: DXF • SVG • AI • PDF • EPS
+  - contentinfo [ref=e57]:
+    - paragraph [ref=e58]: © 2026 LaserHub. Open Source Laser Cutting Cost Calculator.
+    - paragraph [ref=e59]:
+      - link "GitHub" [ref=e60] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub
+      - text: •
+      - link "Contribute" [ref=e61] [cursor=pointer]:
+        - /url: https://github.com/your-username/LaserHub/blob/main/CONTRIBUTING.md
+  - region "Notifications alt+T"

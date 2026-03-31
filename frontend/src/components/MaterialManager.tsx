@@ -8,13 +8,15 @@ import {
   X, 
   Check, 
   Loader,
-  Layers
+  Layers,
+  Settings
 } from 'lucide-react';
 
 export const MaterialManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState<number | null>(null);
+  const [expandedMaterial, setExpandedMaterial] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState<Partial<Material>>({
     name: '',
@@ -36,6 +38,27 @@ export const MaterialManager: React.FC = () => {
       toast.error('Failed to load materials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateConfig = (configId: number, data: any) => {
+    setMaterials(prev => prev.map(m => ({
+      ...m,
+      configs: m.configs.map(c => c.id === configId ? { ...c, ...data } : c)
+    })));
+  };
+
+  const handleSaveConfig = async (configId: number) => {
+    try {
+      const material = materials.find(m => m.configs.some(c => c.id === configId));
+      if (!material) return;
+      const config = material.configs.find(c => c.id === configId);
+      if (!config) return;
+
+      await materialsApi.updateConfig(configId, config);
+      toast.success('Configuration saved');
+    } catch (error) {
+      toast.error('Failed to save configuration');
     }
   };
 
@@ -92,12 +115,12 @@ export const MaterialManager: React.FC = () => {
   }
 
   return (
-    <div className="material-manager">
+    <div className="material-manager animate-in">
       <div className="manager-header">
-        <h2><Layers size={20} /> Material Management</h2>
+        <h2><Layers size={24} /> Material Management</h2>
         {!showAddForm && (
           <button onClick={() => setShowAddForm(true)} className="add-btn">
-            <Plus size={18} /> Add Material
+            <Plus size={20} /> Add Material
           </button>
         )}
       </div>
@@ -112,6 +135,7 @@ export const MaterialManager: React.FC = () => {
                 type="text" 
                 value={formData.name} 
                 onChange={e => setFormData({...formData, name: e.target.value})} 
+                placeholder="e.g. Acrylic Clear"
                 required 
               />
             </div>
@@ -134,7 +158,7 @@ export const MaterialManager: React.FC = () => {
               <label>Rate (per cm² per mm)</label>
               <input 
                 type="number" 
-                step="0.01" 
+                step="0.001" 
                 value={formData.rate_per_cm2_mm} 
                 onChange={e => setFormData({...formData, rate_per_cm2_mm: parseFloat(e.target.value)})} 
                 required 
@@ -155,6 +179,8 @@ export const MaterialManager: React.FC = () => {
               <textarea 
                 value={formData.description} 
                 onChange={e => setFormData({...formData, description: e.target.value})}
+                placeholder="Brief description of material usage..."
+                rows={3}
               />
             </div>
           </div>
@@ -170,73 +196,123 @@ export const MaterialManager: React.FC = () => {
       )}
 
       <div className="materials-list card">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Rate</th>
-              <th>Thicknesses</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {materials.map(material => (
-              <tr key={material.id}>
-                <td className="font-bold">{material.name}</td>
-                <td className="capitalize">{material.type.replace('_', ' ')}</td>
-                <td>${material.rate_per_cm2_mm.toFixed(3)}</td>
-                <td>
-                  <div className="thickness-badges">
-                    {material.available_thicknesses.map(t => (
-                      <span key={t} className="badge">{t}mm</span>
-                    ))}
-                  </div>
-                </td>
-                <td>
-                  <div className="actions">
-                    <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
+        <div className="orders-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Rate</th>
+                <th>Thicknesses</th>
+                <th>Actions</th>
               </tr>
+            </thead>
+            <tbody>
+              {materials.map(material => (
+                <tr key={material.id}>
+                  <td style={{ fontWeight: 700 }}>{material.name}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
+                  <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
+                  <td>
+                    <div className="thickness-badges">
+                      {material.available_thicknesses.map(t => (
+                        <span key={t} className="badge">{t}mm</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)} 
+                        className="edit-btn" 
+                        title="Manage Configs"
+                        style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
+                      >
+                        <Settings size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {expandedMaterial === material.id && (
+                  <tr className="expanded-row">
+                    <td colSpan={5}>
+                      <div className="configs-manager card" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                          <h4 style={{ margin: 0 }}>Granular Thickness Configs</h4>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Set custom rates and speeds per thickness</span>
+                        </div>
+                        <table className="configs-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
+                              <th style={{ padding: '0.5rem' }}>Thickness</th>
+                              <th style={{ padding: '0.5rem' }}>Rate ($/cm²)</th>
+                              <th style={{ padding: '0.5rem' }}>Speed (mm/min)</th>
+                              <th style={{ padding: '0.5rem' }}>Stock Status</th>
+                              <th style={{ padding: '0.5rem' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {material.configs.map(config => (
+                              <tr key={config.id} style={{ borderTop: '1px solid var(--border-color)' }}>
+                                <td style={{ padding: '0.5rem', fontWeight: 700 }}>{config.thickness_mm}mm</td>
+                                <td style={{ padding: '0.5rem' }}>
+                                  <input 
+                                    type="number" 
+                                    step="0.001"
+                                    value={config.rate_per_cm2}
+                                    onChange={(e) => handleUpdateConfig(config.id, { rate_per_cm2: parseFloat(e.target.value) })}
+                                    style={{ width: '80px', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '0.5rem' }}>
+                                  <input 
+                                    type="number" 
+                                    value={config.cut_speed_mm_min}
+                                    onChange={(e) => handleUpdateConfig(config.id, { cut_speed_mm_min: parseFloat(e.target.value) })}
+                                    style={{ width: '80px', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '0.5rem' }}>
+                                  <button 
+                                    onClick={() => handleUpdateConfig(config.id, { is_in_stock: !config.is_in_stock })}
+                                    style={{ 
+                                      padding: '0.25rem 0.5rem', 
+                                      borderRadius: '4px', 
+                                      border: 'none',
+                                      background: config.is_in_stock ? '#dcfce7' : '#fee2e2',
+                                      color: config.is_in_stock ? '#166534' : '#991b1b',
+                                      cursor: 'pointer',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    {config.is_in_stock ? 'In Stock' : 'Out of Stock'}
+                                  </button>
+                                </td>
+                                <td style={{ padding: '0.5rem' }}>
+                                  <button onClick={() => handleSaveConfig(config.id)} className="save-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>
+                                    Save
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
       </div>
-
-      <style>{`
-        .material-manager { padding: 1rem 0; }
-        .manager-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-        .manager-header h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
-        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
-        .material-form h3 { margin-top: 0; margin-bottom: 1rem; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        .form-group { display: flex; flexDirection: column; gap: 0.4rem; }
-        .form-group label { font-size: 0.9rem; font-weight: 600; color: #4b5563; }
-        .form-group input, .form-group select, .form-group textarea { 
-          padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 1rem; 
-        }
-        .full-width { grid-column: span 2; }
-        .form-actions { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem; }
-        .add-btn { background: #0ea5e9; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
-        .save-btn { background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
-        .cancel-btn { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-weight: 600; }
-        .materials-list table { width: 100%; border-collapse: collapse; }
-        .materials-list th { text-align: left; padding: 0.75rem; border-bottom: 2px solid #f3f4f6; color: #6b7280; font-size: 0.85rem; text-transform: uppercase; }
-        .materials-list td { padding: 0.75rem; border-bottom: 1px solid #f3f4f6; }
-        .thickness-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-        .badge { background: #f3f4f6; color: #4b5563; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.8rem; }
-        .actions { display: flex; gap: 0.5rem; }
-        .edit-btn { color: #0ea5e9; background: #f0f9ff; border: 1px solid #bae6fd; padding: 0.3rem; border-radius: 4px; cursor: pointer; }
-        .delete-btn { color: #ef4444; background: #fef2f2; border: 1px solid #fee2e2; padding: 0.3rem; border-radius: 4px; cursor: pointer; }
-        .capitalize { text-transform: capitalize; }
-        .font-bold { font-weight: 600; }
-      `}</style>
     </div>
   );
 };

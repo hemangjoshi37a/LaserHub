@@ -1,5 +1,14 @@
 import api from './api';
 
+export interface MaterialConfig {
+  id: number;
+  material_id: number;
+  thickness_mm: number;
+  rate_per_cm2: number;
+  cut_speed_mm_min: number;
+  is_in_stock: boolean;
+}
+
 export interface Material {
   id: number;
   name: string;
@@ -7,6 +16,7 @@ export interface Material {
   rate_per_cm2_mm: number;
   available_thicknesses: number[];
   description?: string;
+  configs: MaterialConfig[];
 }
 
 export interface FileUploadResponse {
@@ -171,6 +181,16 @@ export const materialsApi = {
 
   deleteMaterial: async (id: number): Promise<void> => {
     await api.delete(`/materials/${id}`);
+  },
+
+  createConfig: async (config: Omit<MaterialConfig, 'id'>): Promise<MaterialConfig> => {
+    const response = await api.post<MaterialConfig>('/materials/configs', config);
+    return response.data;
+  },
+
+  updateConfig: async (id: number, config: Partial<MaterialConfig>): Promise<MaterialConfig> => {
+    const response = await api.put<MaterialConfig>(`/materials/configs/${id}`, config);
+    return response.data;
   },
 };
 

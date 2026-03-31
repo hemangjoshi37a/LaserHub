@@ -80,10 +80,10 @@ export const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="admin-dashboard">
+    <div className="admin-dashboard animate-in">
       <header className="admin-header">
         <div className="header-left">
-          <LayoutDashboard size={24} />
+          <LayoutDashboard size={28} />
           <h1>Admin Dashboard</h1>
         </div>
         <div className="header-actions" style={{ display: 'flex', gap: '1rem' }}>
@@ -91,31 +91,33 @@ export const AdminDashboard: React.FC = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: '0.5rem',
-            padding: '0.5rem 1rem',
-            background: '#f0f9ff',
-            color: '#0ea5e9',
-            border: '2px solid #bae6fd',
-            borderRadius: '6px',
+            padding: '0.75rem 1.25rem',
+            background: 'rgba(14, 165, 233, 0.1)',
+            color: 'var(--accent-color)',
+            border: '1px solid rgba(14, 165, 233, 0.2)',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontWeight: 600
+            fontWeight: 700,
+            transition: 'all 0.2s'
           }}>
             <BarChart2 size={18} />
-            View Analytics
+            Analytics
           </button>
           <button onClick={() => navigate('/admin/materials')} className="materials-btn" style={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: '0.5rem',
-            padding: '0.5rem 1rem',
-            background: '#fdf4ff',
+            padding: '0.75rem 1.25rem',
+            background: 'rgba(168, 85, 247, 0.1)',
             color: '#a855f7',
-            border: '2px solid #f5d0fe',
-            borderRadius: '6px',
+            border: '1px solid rgba(168, 85, 247, 0.2)',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontWeight: 600
+            fontWeight: 700,
+            transition: 'all 0.2s'
           }}>
             <Layers size={18} />
-            Manage Materials
+            Materials
           </button>
           <button onClick={handleLogout} className="logout-btn">
             <LogOut size={18} />
@@ -127,7 +129,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon">
-            <Package size={24} />
+            <Package size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Total Orders</p>
@@ -137,7 +139,7 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="stat-card">
           <div className="stat-icon warning">
-            <AlertCircle size={24} />
+            <AlertCircle size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Pending Orders</p>
@@ -147,26 +149,26 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="stat-card">
           <div className="stat-icon success">
-            <DollarSign size={24} />
+            <DollarSign size={28} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Total Revenue</p>
-            <p className="stat-value">${stats?.total_revenue?.toFixed(2) || '0.00'}</p>
+            <p className="stat-value">${stats?.total_revenue?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}</p>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon info">
-            <TrendingUp size={24} />
+            <TrendingUp size={28} />
           </div>
           <div className="stat-info">
-            <p className="stat-label">Monthly Revenue</p>
-            <p className="stat-value">${stats?.monthly_revenue?.toFixed(2) || '0.00'}</p>
+            <p className="stat-label">Monthly Sales</p>
+            <p className="stat-value">${stats?.monthly_revenue?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}</p>
           </div>
         </div>
       </div>
 
-      <div className="recent-orders">
+      <div className="recent-orders card">
         <h2>Recent Orders</h2>
         <div className="orders-table">
           <table>
@@ -174,7 +176,7 @@ export const AdminDashboard: React.FC = () => {
               <tr>
                 <th>Order #</th>
                 <th>Customer</th>
-                <th>Material</th>
+                <th>Details</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Date</th>
@@ -184,26 +186,38 @@ export const AdminDashboard: React.FC = () => {
             <tbody>
               {stats?.recent_orders?.map((order: any) => (
                 <tr key={order.id}>
-                  <td className="order-number">{order.order_number}</td>
+                  <td className="order-number" style={{ color: 'var(--accent-color)', fontWeight: 800 }}>{order.order_number}</td>
                   <td>
-                    <div>{order.customer_name}</div>
-                    <div className="email">{order.customer_email}</div>
+                    <div style={{ fontWeight: 700 }}>{order.customer_name}</div>
+                    <div className="email" style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>{order.customer_email}</div>
                   </td>
                   <td>
-                    {order.material_name} ({order.thickness_mm}mm)
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{order.material_name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{order.thickness_mm}mm • Qty: {order.quantity}</div>
                   </td>
-                  <td className="amount">${order.total_amount.toFixed(2)}</td>
+                  <td className="amount" style={{ fontWeight: 800 }}>${order.total_amount.toFixed(2)}</td>
                   <td>
                     <span className={`status-badge ${getStatusColor(order.status)}`}>
                       {order.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                  <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </td>
                   <td>
                     <select
                       value={order.status}
                       onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                       className="status-select"
+                      style={{
+                        padding: '0.4rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.85rem',
+                        fontWeight: 600
+                      }}
                     >
                       <option value="pending">Pending</option>
                       <option value="paid">Paid</option>

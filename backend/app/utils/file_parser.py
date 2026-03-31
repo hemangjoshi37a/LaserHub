@@ -174,14 +174,66 @@ def parse_svg(file_path: str) -> Dict[str, Any]:
 
     cut_length = 0.0
 
-    # Function to parse path 'd' attribute roughly
+    # Function to parse path 'd' attribute more accurately
     def get_path_length(d: str) -> float:
-        # Very rough estimation by summing distances between coordinates
-        # For production, use 'svgpathtools' or similar
-        nums = [float(n) for n in re.findall(r"[-+]?\d*\.\d+|\d+", d)]
+        # Split path data by commands
+        commands = re.findall(r'([MLHVCSQTAZmlhvcsqtaz])([^MLHVCSQTAZmlhvcsqtaz]*)', d)
         length = 0.0
-        for i in range(0, len(nums) - 3, 2):
-            length += math.sqrt((nums[i+2]-nums[i])**2 + (nums[i+3]-nums[i+1])**2)
+        current_pos = (0.0, 0.0)
+        start_pos = (0.0, 0.0)
+
+        for cmd, params in commands:
+            nums = [float(n) for n in re.findall(r"[-+]?\d*\.\d+|\d+", params)]
+            
+            if cmd in ('M', 'm'):
+                if len(nums) >= 2:
+                    if cmd == 'M':
+                        current_pos = (nums[0], nums[1])
+                    else:
+                        current_pos = (current_pos[0] + nums[0], current_pos[1] + nums[1])
+                    start_pos = current_pos
+                    # Implicit lineto if more numbers follow
+                    for i in range(2, len(nums) - 1, 2):
+                        new_pos = (nums[i], nums[i+1]) if cmd == 'M' else (current_pos[0] + nums[i], current_pos[1] + nums[i+1])
+                        length += math.sqrt((new_pos[0]-current_pos[0])**2 + (new_pos[1]-current_pos[1])**2)
+                        current_pos = new_pos
+            elif cmd in ('L', 'l'):
+                for i in range(0, len(nums) - 1, 2):
+                    new_pos = (nums[i], nums[i+1]) if cmd == 'L' else (current_pos[0] + nums[i], current_pos[1] + nums[i+1])
+                    length += math.sqrt((new_pos[0]-current_pos[0])**2 + (new_pos[1]-current_pos[1])**2)
+                    current_pos = new_pos
+            elif cmd in ('H', 'h'):
+                for val in nums:
+                    new_pos = (val, current_pos[1]) if cmd == 'H' else (current_pos[0] + val, current_pos[1])
+                    length += abs(new_pos[0] - current_pos[0])
+                    current_pos = new_pos
+            elif cmd in ('V', 'v'):
+                for val in nums:
+                    new_pos = (current_pos[0], val) if cmd == 'V' else (current_pos[0], current_pos[1] + val)
+                    length += abs(new_pos[1] - current_pos[1])
+                    current_pos = new_pos
+            elif cmd in ('C', 'c'):
+                # Approximating cubic bezier length with chord length
+                for i in range(0, len(nums) - 5, 6):
+                    new_pos = (nums[i+4], nums[i+5]) if cmd == 'C' else (current_pos[0] + nums[i+4], current_pos[1] + nums[i+5])
+                    length += math.sqrt((new_pos[0]-current_pos[0])**2 + (new_pos[1]-current_pos[1])**2)
+                    current_pos = new_pos
+            elif cmd in ('S', 's', 'Q', 'q', 'T', 't'):
+                # Approximating other curves with chord length
+                step = 4 if cmd in ('Q', 'q', 'S', 's') else 2
+                for i in range(0, len(nums) - (step-1), step):
+                    new_pos = (nums[i+step-2], nums[i+step-1]) if cmd.isupper() else (current_pos[0] + nums[i+step-2], current_pos[1] + nums[i+step-1])
+                    length += math.sqrt((new_pos[0]-current_pos[0])**2 + (new_pos[1]-current_pos[1])**2)
+                    current_pos = new_pos
+            elif cmd in ('A', 'a'):
+                # Approximating arc with chord length
+                for i in range(0, len(nums) - 6, 7):
+                    new_pos = (nums[i+5], nums[i+6]) if cmd == 'A' else (current_pos[0] + nums[i+5], current_pos[1] + nums[i+6])
+                    length += math.sqrt((new_pos[0]-current_pos[0])**2 + (new_pos[1]-current_pos[1])**2)
+                    current_pos = new_pos
+            elif cmd in ('Z', 'z'):
+                length += math.sqrt((start_pos[0]-current_pos[0])**2 + (start_pos[1]-current_pos[1])**2)
+                current_pos = start_pos
         return length
 
     # Iterate through various shapes
