@@ -209,40 +209,41 @@ export const MaterialManager: React.FC = () => {
             </thead>
             <tbody>
               {materials.map(material => (
-                <tr key={material.id}>
-                  <td style={{ fontWeight: 700 }}>{material.name}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
-                  <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
-                  <td>
-                    <div className="thickness-badges">
-                      {material.available_thicknesses.map(t => (
-                        <span key={t} className="badge">{t}mm</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="actions">
-                      <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)} 
-                        className="edit-btn" 
-                        title="Manage Configs"
-                        style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
-                      >
-                        <Settings size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {expandedMaterial === material.id && (
-                  <tr className="expanded-row">
-                    <td colSpan={5}>
-                      <div className="configs-manager card" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)' }}>
+                <React.Fragment key={material.id}>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>{material.name}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
+                    <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
+                    <td>
+                      <div className="thickness-badges">
+                        {material.available_thicknesses.map(t => (
+                          <span key={t} className="badge">{t}mm</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="actions">
+                        <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)}
+                          className="edit-btn"
+                          title="Manage Configs"
+                          style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
+                        >
+                          <Settings size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedMaterial === material.id && (
+                    <tr className="expanded-row">
+                      <td colSpan={5}>
+                        <div className="configs-manager card" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                           <h4 style={{ margin: 0 }}>Granular Thickness Configs</h4>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Set custom rates and speeds per thickness</span>
