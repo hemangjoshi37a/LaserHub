@@ -82,6 +82,10 @@ htmlcov/
 .tox/
 .nox/
 
+# Python type checking and linting
+.mypy_cache/
+.ruff_cache/
+
 # Coverage
 coverage.xml
 *.cover
