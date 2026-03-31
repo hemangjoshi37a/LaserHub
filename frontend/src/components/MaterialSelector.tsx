@@ -3,6 +3,7 @@ import { Layers, Ruler, Package } from 'lucide-react';
 import { useAppStore } from '../store';
 import { materialsApi } from '../services';
 import { toast } from 'sonner';
+import { Skeleton } from './Skeleton';
 
 export const MaterialSelector: React.FC = () => {
   const { 
@@ -51,8 +52,17 @@ export const MaterialSelector: React.FC = () => {
   if (loading) {
     return (
       <div className="material-selector">
-        <h2>Select Material</h2>
-        <div className="loading">Loading materials...</div>
+        <h2>Select Material & Specifications</h2>
+        <div className="material-grid">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="material-card" style={{ cursor: 'default' }}>
+              <Skeleton width={48} height={48} borderRadius="12px" />
+              <Skeleton width="80%" height="1.5rem" style={{ margin: '1rem auto' }} />
+              <Skeleton width="60%" height="1rem" style={{ margin: '0.5rem auto' }} />
+              <Skeleton width="40%" height="1.2rem" style={{ margin: '0.5rem auto' }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

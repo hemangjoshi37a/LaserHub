@@ -2,19 +2,23 @@
 Cost calculation API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import UploadedFile, Material
-from app.schemas import CostCalculationRequest, CostEstimate, CostBreakdown
+from app.models import Material, UploadedFile
+from app.schemas import CostBreakdown, CostCalculationRequest, CostEstimate
 from app.services.cost_calculator import calculate_total_cost
 
 router = APIRouter()
 
 
-@router.post("/", response_model=CostEstimate)
+@router.post("/",
+    response_model=CostEstimate,
+    summary="Calculate cost",
+    description="Calculate detailed cost for laser cutting based on an uploaded file, selected material, thickness, and quantity. Includes breakdown of material, laser time, energy, setup fee, and tax."
+)
 async def calculate_cost(
     request: CostCalculationRequest,
     db: AsyncSession = Depends(get_db)
@@ -27,28 +31,28 @@ async def calculate_cost(
         select(UploadedFile).where(UploadedFile.file_id == request.file_id)
     )
     uploaded_file = result.scalar_one_or_none()
-    
+
     if not uploaded_file:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     if not uploaded_file.area_cm2 or not uploaded_file.cut_length_mm:
         raise HTTPException(
             status_code=400,
             detail="File analysis not available. Please re-upload the file."
         )
-    
+
     # Get material
     result = await db.execute(
         select(Material).where(Material.id == request.material_id)
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    
+
     if not material.is_active:
         raise HTTPException(status_code=400, detail="Material is not available")
-    
+
     # Validate thickness
     import json
     available_thicknesses = json.loads(material.available_thicknesses or "[]")
@@ -57,7 +61,7 @@ async def calculate_cost(
             status_code=400,
             detail=f"Thickness not available. Available: {available_thicknesses}"
         )
-    
+
     # Calculate cost
     cost_data = calculate_total_cost(
         area_cm2=uploaded_file.area_cm2,
@@ -66,7 +70,7 @@ async def calculate_cost(
         material_rate=material.rate_per_cm2_mm,
         quantity=request.quantity,
     )
-    
+
     return CostEstimate(
         file_id=request.file_id,
         material_name=material.name,
@@ -77,7 +81,10 @@ async def calculate_cost(
     )
 
 
-@router.get("/preview/{file_id}")
+@router.get("/preview/{file_id}",
+    summary="Get cost preview",
+    description="Quickly estimate cost using a default material and thickness. Useful for showing instant pricing after upload."
+)
 async def preview_cost(file_id: str, db: AsyncSession = Depends(get_db)):
     """
     Get cost preview for a file with default material
@@ -86,22 +93,22 @@ async def preview_cost(file_id: str, db: AsyncSession = Depends(get_db)):
         select(UploadedFile).where(UploadedFile.file_id == file_id)
     )
     uploaded_file = result.scalar_one_or_none()
-    
+
     if not uploaded_file:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     # Get default material
     result = await db.execute(select(Material).where(Material.is_active == True).limit(1))
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="No materials available")
-    
+
     # Calculate with default thickness
     import json
     available_thicknesses = json.loads(material.available_thicknesses or "[3]")
     default_thickness = available_thicknesses[0] if available_thicknesses else 3.0
-    
+
     cost_data = calculate_total_cost(
         area_cm2=uploaded_file.area_cm2 or 0,
         cut_length_mm=uploaded_file.cut_length_mm or 0,
@@ -109,7 +116,7 @@ async def preview_cost(file_id: str, db: AsyncSession = Depends(get_db)):
         material_rate=material.rate_per_cm2_mm,
         quantity=1,
     )
-    
+
     return {
         "file_id": file_id,
         "preview_material": material.name,

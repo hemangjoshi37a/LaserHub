@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .header { background-color: #f8f9fa; padding: 10px; text-align: center; border-bottom: 1px solid #ddd; }
+        .footer { font-size: 0.8em; text-align: center; margin-top: 20px; color: #777; }
+        .status { font-weight: bold; color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>LaserHub Order Status Update</h2>
+        </div>
+        <p>Hello {{ name }},</p>
+        <p>Your order #{{ order_id }} status has been updated.</p>
+        <p>Current Status: <span class="status">{{ status }}</span></p>
+        <p>We're making progress on your laser-cut parts and will keep you posted!</p>
+        <p>Best regards,<br>The LaserHub Team</p>
+        <div class="footer">
+            &copy; {{ year }} LaserHub Inc. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

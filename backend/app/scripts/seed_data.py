@@ -11,11 +11,11 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
 from app.core.database import Base
 from app.models import Material
-
 
 # Initial materials data
 MATERIALS = [
@@ -80,16 +80,16 @@ MATERIALS = [
 
 async def seed_database():
     """Seed the database with initial materials"""
-    
+
     # Create engine and tables
     engine = create_async_engine(settings.DATABASE_URL, echo=True)
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Create session
     async_session = async_sessionmaker(engine, class_=AsyncSession)
-    
+
     async with async_session() as session:
         for material_data in MATERIALS:
             # Check if material exists
@@ -98,11 +98,11 @@ async def seed_database():
                     Material.name == material_data["name"]
                 )
             )
-            
+
             if existing.fetchone():
                 print(f"Skipping {material_data['name']} - already exists")
                 continue
-            
+
             # Create material
             material = Material(
                 name=material_data["name"],
@@ -112,10 +112,10 @@ async def seed_database():
                 description=material_data["description"],
                 is_active=True,
             )
-            
+
             session.add(material)
             print(f"Created {material_data['name']}")
-        
+
         await session.commit()
         print("\n✓ Database seeded successfully!")
 

@@ -3,6 +3,7 @@ Cost calculation service for laser cutting
 """
 
 from typing import Dict
+
 from app.core.config import settings
 
 
@@ -34,11 +35,11 @@ def calculate_laser_time(cut_length_mm: float, cut_speed_mm_per_min: float = Non
     """
     if cut_speed_mm_per_min is None:
         cut_speed_mm_per_min = settings.CUT_SPEED_MM_PER_MIN
-    
+
     return cut_length_mm / cut_speed_mm_per_min
 
 
-def calculate_energy_cost(time_minutes: float, power_watts: float = None, 
+def calculate_energy_cost(time_minutes: float, power_watts: float = None,
                           electricity_rate: float = None) -> float:
     """
     Calculate energy cost for laser operation
@@ -55,7 +56,7 @@ def calculate_energy_cost(time_minutes: float, power_watts: float = None,
         power_watts = settings.LASER_POWER_WATTS
     if electricity_rate is None:
         electricity_rate = settings.ELECTRICITY_RATE
-    
+
     # Convert to kWh
     kwh = (power_watts * time_minutes) / (1000 * 60)
     return kwh * electricity_rate
@@ -118,24 +119,24 @@ def calculate_total_cost(
     """
     # Calculate per-piece costs
     material_cost = calculate_material_cost(area_cm2, thickness_mm, material_rate)
-    
+
     laser_time_minutes = calculate_laser_time(cut_length_mm)
     energy_cost = calculate_energy_cost(laser_time_minutes)
-    
+
     # Laser machine time cost (depreciation + electricity)
     machine_rate_per_min = 0.50  # $0.50 per minute
     laser_time_cost = laser_time_minutes * machine_rate_per_min
-    
+
     # Calculate totals
     per_piece_subtotal = material_cost + laser_time_cost + energy_cost
     subtotal = per_piece_subtotal * quantity + setup_fee
     tax = subtotal * tax_rate
     total = subtotal + tax
-    
+
     # Production time
     total_cut_time_minutes = laser_time_minutes * quantity
     total_production_time_hours = total_cut_time_minutes / 60
-    
+
     return {
         "material_cost": round(material_cost * quantity, 2),
         "laser_time_cost": round(laser_time_cost * quantity, 2),

@@ -62,6 +62,68 @@ export interface Order {
   updated_at: string;
 }
 
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  is_admin: boolean;
+  is_verified: boolean;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export const authApi = {
+  register: async (userData: any): Promise<User> => {
+    const response = await api.post<User>('/auth/register', userData);
+    return response.data;
+  },
+
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const formData = new FormData();
+    formData.append('username', email);
+    formData.append('password', password);
+
+    const response = await api.post<AuthResponse>('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    return response.data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const response = await api.get<User>('/auth/me');
+    return response.data;
+  },
+
+  listMyOrders: async (): Promise<Order[]> => {
+    const response = await api.get<Order[]>('/auth/orders');
+    return response.data;
+  },
+
+  verifyEmail: async (token: string): Promise<any> => {
+    const response = await api.post('/auth/verify', { token });
+    return response.data;
+  },
+
+  requestPasswordReset: async (email: string): Promise<any> => {
+    const response = await api.post('/auth/password-reset-request', { email });
+    return response.data;
+  },
+
+  confirmPasswordReset: async (token: string, newPassword: string): Promise<any> => {
+    const response = await api.post('/auth/password-reset-confirm', {
+      token,
+      new_password: newPassword,
+    });
+    return response.data;
+  },
+};
+
 export const uploadApi = {
   uploadFile: async (file: File): Promise<FileUploadResponse> => {
     const formData = new FormData();
@@ -167,6 +229,34 @@ export const paymentApi = {
   },
 };
 
+export interface SalesData {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface MaterialMetric {
+  material_name: string;
+  count: number;
+  revenue: number;
+}
+
+export interface CustomerMetric {
+  email: string;
+  name: string;
+  order_count: number;
+  total_spent: number;
+}
+
+export interface AnalyticsData {
+  sales_over_time: SalesData[];
+  popular_materials: MaterialMetric[];
+  top_customers: CustomerMetric[];
+  total_orders: number;
+  total_revenue: number;
+  average_order_value: number;
+}
+
 export const adminApi = {
   login: async (email: string, password: string): Promise<{
     access_token: string;
@@ -198,6 +288,18 @@ export const adminApi = {
   updateOrder: async (orderId: number, status: string): Promise<Order> => {
     const response = await api.put<Order>(`/admin/orders/${orderId}`, {
       status,
+    });
+    return response.data;
+  },
+
+  getAnalytics: async (): Promise<AnalyticsData> => {
+    const response = await api.get<AnalyticsData>('/admin/analytics');
+    return response.data;
+  },
+
+  exportOrders: async (): Promise<Blob> => {
+    const response = await api.get('/admin/orders/export', {
+      responseType: 'blob',
     });
     return response.data;
   },

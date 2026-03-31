@@ -4,13 +4,14 @@ Orders API endpoints
 
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
 
 from app.core.database import get_db
-from app.models import Order, UploadedFile, Material
-from app.schemas import OrderCreate, OrderResponse, OrderUpdate
+from app.models import Material, Order, UploadedFile
+from app.schemas import OrderCreate, OrderResponse
 
 router = APIRouter()
 
@@ -35,22 +36,22 @@ async def create_order(
         select(UploadedFile).where(UploadedFile.file_id == order_data.file_id)
     )
     uploaded_file = result.scalar_one_or_none()
-    
+
     if not uploaded_file:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     # Verify material exists
     result = await db.execute(
         select(Material).where(Material.id == order_data.material_id)
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    
+
     # Calculate costs
     from app.services.cost_calculator import calculate_total_cost
-    
+
     cost_data = calculate_total_cost(
         area_cm2=uploaded_file.area_cm2 or 0,
         cut_length_mm=uploaded_file.cut_length_mm or 0,
@@ -58,7 +59,7 @@ async def create_order(
         material_rate=material.rate_per_cm2_mm,
         quantity=order_data.quantity,
     )
-    
+
     # Create order
     order = Order(
         order_number=generate_order_number(),
@@ -76,11 +77,11 @@ async def create_order(
         shipping_address=order_data.shipping_address,
         status="pending",
     )
-    
+
     db.add(order)
     await db.commit()
     await db.refresh(order)
-    
+
     # Return order with material name
     return OrderResponse(
         id=order.id,
@@ -107,16 +108,16 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
         .where(Order.id == order_id)
     )
     order = result.scalar_one_or_none()
-    
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    
+
     # Get material name
     material_result = await db.execute(
         select(Material).where(Material.id == order.material_id)
     )
     material = material_result.scalar_one_or_none()
-    
+
     return OrderResponse(
         id=order.id,
         order_number=order.order_number,
@@ -148,14 +149,14 @@ async def list_orders(
         .limit(limit)
     )
     orders = result.scalars().all()
-    
+
     order_responses = []
     for order in orders:
         material_result = await db.execute(
             select(Material).where(Material.id == order.material_id)
         )
         material = material_result.scalar_one_or_none()
-        
+
         order_responses.append(OrderResponse(
             id=order.id,
             order_number=order.order_number,
@@ -171,5 +172,5 @@ async def list_orders(
             created_at=order.created_at,
             updated_at=order.updated_at,
         ))
-    
+
     return order_responses

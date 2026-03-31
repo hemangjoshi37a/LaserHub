@@ -2,10 +2,11 @@
 Pydantic schemas for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr
 
 
 class MaterialType(str, Enum):
@@ -46,7 +47,7 @@ class MaterialCreate(MaterialBase):
 class MaterialResponse(MaterialBase):
     """Schema for material response"""
     id: int
-    
+
     class Config:
         from_attributes = True
 
@@ -130,7 +131,7 @@ class OrderResponse(BaseModel):
     shipping_address: str
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -139,6 +140,8 @@ class OrderUpdate(BaseModel):
     """Schema for updating order"""
     status: Optional[OrderStatus] = None
     notes: Optional[str] = None
+    carrier: Optional[str] = None
+    tracking_number: Optional[str] = None
 
 
 # Payment Schemas
@@ -182,3 +185,85 @@ class DashboardStats(BaseModel):
     total_revenue: float
     monthly_revenue: float
     recent_orders: List[OrderResponse]
+
+
+class SalesData(BaseModel):
+    """Sales data over time"""
+    date: str
+    revenue: float
+    orders: int
+
+
+class MaterialMetric(BaseModel):
+    """Material usage metric"""
+    material_name: str
+    count: int
+    revenue: float
+
+
+class CustomerMetric(BaseModel):
+    """Customer metric"""
+    email: str
+    name: str
+    order_count: int
+    total_spent: float
+
+
+class AnalyticsData(BaseModel):
+    """Comprehensive analytics data"""
+    sales_over_time: List[SalesData]
+    popular_materials: List[MaterialMetric]
+    top_customers: List[CustomerMetric]
+    total_orders: int
+    total_revenue: float
+    average_order_value: float
+
+
+# User Schemas
+class UserBase(BaseModel):
+    """Base user schema"""
+    email: EmailStr
+    name: str
+
+
+class UserCreate(UserBase):
+    """Schema for creating user"""
+    password: str
+
+
+class UserResponse(UserBase):
+    """User response schema"""
+    id: int
+    is_admin: bool
+    is_verified: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Token(BaseModel):
+    """Token response"""
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TokenData(BaseModel):
+    """Token data"""
+    email: Optional[str] = None
+
+
+class VerificationRequest(BaseModel):
+    """Email verification request"""
+    token: str
+
+
+class PasswordResetRequest(BaseModel):
+    """Password reset request"""
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Password reset confirmation"""
+    token: str
+    new_password: str

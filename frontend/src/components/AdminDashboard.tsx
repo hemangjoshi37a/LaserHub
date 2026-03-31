@@ -10,6 +10,7 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
+  BarChart2,
 } from 'lucide-react';
 import { adminApi } from '../services';
 import { toast } from 'sonner';
@@ -79,10 +80,27 @@ export const AdminDashboard: React.FC = () => {
           <LayoutDashboard size={24} />
           <h1>Admin Dashboard</h1>
         </div>
-        <button onClick={handleLogout} className="logout-btn">
-          <LogOut size={18} />
-          Logout
-        </button>
+        <div className="header-actions" style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={() => navigate('/admin/analytics')} className="analytics-btn" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            background: '#f0f9ff',
+            color: '#0ea5e9',
+            border: '2px solid #bae6fd',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 600
+          }}>
+            <BarChart2 size={18} />
+            View Analytics
+          </button>
+          <button onClick={handleLogout} className="logout-btn">
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
       </header>
 
       <div className="stats-grid">

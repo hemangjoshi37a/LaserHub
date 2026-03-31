@@ -3,13 +3,14 @@ Materials API endpoints
 """
 
 import json
-from fastapi import APIRouter, HTTPException, Depends, Body
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models import Material
-from app.schemas import MaterialResponse, MaterialCreate
+from app.schemas import MaterialCreate, MaterialResponse
 
 router = APIRouter()
 
@@ -21,6 +22,12 @@ async def list_materials(db: AsyncSession = Depends(get_db)):
         select(Material).where(Material.is_active == True)
     )
     materials = result.scalars().all()
+
+    # Parse thickness JSON strings
+    for m in materials:
+        if isinstance(m.available_thicknesses, str):
+            m.available_thicknesses = json.loads(m.available_thicknesses)
+
     return materials
 
 
@@ -31,10 +38,13 @@ async def get_material(material_id: int, db: AsyncSession = Depends(get_db)):
         select(Material).where(Material.id == material_id)
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    
+
+    if isinstance(material.available_thicknesses, str):
+        material.available_thicknesses = json.loads(material.available_thicknesses)
+
     return material
 
 
@@ -46,7 +56,7 @@ async def create_material(
     """Create new material (admin only)"""
     # Convert thicknesses to JSON string
     thicknesses_json = json.dumps(material.available_thicknesses)
-    
+
     db_material = Material(
         name=material.name,
         type=material.type.value,
@@ -54,9 +64,9 @@ async def create_material(
         available_thicknesses=thicknesses_json,
         description=material.description,
     )
-    
+
     db.add(db_material)
     await db.commit()
     await db.refresh(db_material)
-    
+
     return db_material

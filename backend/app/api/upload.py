@@ -1,72 +1,61 @@
 """
-File upload API endpoints
+File upload and analysis API endpoints
 """
 
-import os
 import uuid
-import shutil
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
-from app.core.database import get_db
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
+from app.core.database import get_db
 from app.models import UploadedFile
-from app.schemas import FileUploadResponse, FileAnalysis
+from app.schemas import FileAnalysis, FileUploadResponse
 from app.utils.file_parser import parse_generic
 
 router = APIRouter()
 
+# Ensure upload directory exists
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
-def validate_file(file: UploadFile) -> bool:
-    """Validate uploaded file"""
-    # Check extension
-    ext = Path(file.filename).suffix.lower().lstrip('.')
+@router.post("/",
+    response_model=FileUploadResponse,
+    summary="Upload a vector file",
+    description="Upload a vector file (DXF, SVG, AI, etc.) for laser cutting cost calculation. The file is analyzed to extract dimensions and cut length."
+)
+async def upload_file(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload a vector file and perform initial analysis
+    """
+    # Check file extension
+    ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
     if ext not in settings.ALLOWED_EXTENSIONS:
-        return False
-    return True
-
-
-@router.post("/", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...)):
-    """
-    Upload a vector file for laser cutting
-    
-    Accepts: DXF, SVG, AI, PDF, EPS
-    """
-    # Validate file type
-    if not validate_file(file):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+            detail=f"File extension {ext} not allowed. Supported: {settings.ALLOWED_EXTENSIONS}"
         )
-    
-    # Check file size
+
+    # Generate unique file ID and path
+    file_id = str(uuid.uuid4())
+    file_path = UPLOAD_DIR / f"{file_id}.{ext}"
+
+    # Save physical file
     content = await file.read()
     file_size = len(content)
-    max_size = settings.MAX_FILE_SIZE_MB * 1024 * 1024
-    
-    if file_size > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Max size: {settings.MAX_FILE_SIZE_MB}MB"
-        )
-    
-    # Generate unique file ID
-    file_id = str(uuid.uuid4())
-    ext = Path(file.filename).suffix.lower()
-    filename = f"{file_id}{ext}"
-    file_path = UPLOAD_DIR / filename
-    
-    # Save file
+
+    if file_size > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large")
+
     with open(file_path, "wb") as f:
         f.write(content)
-    
+
     # Try to parse file and extract dimensions
     try:
         analysis = parse_generic(str(file_path))
@@ -75,28 +64,27 @@ async def upload_file(file: UploadFile = File(...)):
         area_cm2 = analysis.get("area_cm2", 0)
         cut_length_mm = analysis.get("cut_length_mm", 0)
         estimated_cut_time = cut_length_mm / settings.CUT_SPEED_MM_PER_MIN if cut_length_mm else 0
-    except Exception as e:
+    except Exception:
         # If parsing fails, store file but mark analysis as pending
         width_mm = height_mm = area_cm2 = cut_length_mm = estimated_cut_time = None
-    
+
     # Save to database
-    async with get_db() as db:
-        uploaded_file = UploadedFile(
-            file_id=file_id,
-            filename=file.filename,
-            file_path=str(file_path),
-            file_size=file_size,
-            file_type=ext,
-            width_mm=width_mm,
-            height_mm=height_mm,
-            area_cm2=area_cm2,
-            cut_length_mm=cut_length_mm,
-            estimated_cut_time_minutes=estimated_cut_time,
-        )
-        db.add(uploaded_file)
-        await db.commit()
-        await db.refresh(uploaded_file)
-    
+    uploaded_file = UploadedFile(
+        file_id=file_id,
+        filename=file.filename,
+        file_path=str(file_path),
+        file_size=file_size,
+        file_type=ext,
+        width_mm=width_mm,
+        height_mm=height_mm,
+        area_cm2=area_cm2,
+        cut_length_mm=cut_length_mm,
+        estimated_cut_time_minutes=estimated_cut_time,
+    )
+    db.add(uploaded_file)
+    await db.commit()
+    await db.refresh(uploaded_file)
+
     return FileUploadResponse(
         file_id=file_id,
         filename=file.filename,
@@ -106,50 +94,59 @@ async def upload_file(file: UploadFile = File(...)):
     )
 
 
-@router.get("/{file_id}", response_model=FileAnalysis)
-async def get_file_analysis(file_id: str):
+@router.get("/{file_id}",
+    response_model=FileAnalysis,
+    summary="Get file analysis",
+    description="Retrieve the geometric analysis (dimensions, area, cut length) for a previously uploaded file."
+)
+async def get_file_analysis(
+    file_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Get analysis results for uploaded file"""
-    async with get_db() as db:
-        result = await db.execute(
-            UploadedFile.__table__.select().where(UploadedFile.file_id == file_id)
-        )
-        file_record = result.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        return FileAnalysis(
-            file_id=file_record.file_id,
-            width_mm=file_record.width_mm or 0,
-            height_mm=file_record.height_mm or 0,
-            area_cm2=file_record.area_cm2 or 0,
-            cut_length_mm=file_record.cut_length_mm or 0,
-            estimated_cut_time_minutes=file_record.estimated_cut_time_minutes or 0,
-            complexity_score=(file_record.cut_length_mm or 0) / (file_record.area_cm2 or 1),
-        )
+    result = await db.execute(
+        select(UploadedFile).where(UploadedFile.file_id == file_id)
+    )
+    file_record = result.scalar_one_or_none()
+
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileAnalysis(
+        file_id=file_record.file_id,
+        width_mm=file_record.width_mm or 0,
+        height_mm=file_record.height_mm or 0,
+        area_cm2=file_record.area_cm2 or 0,
+        cut_length_mm=file_record.cut_length_mm or 0,
+        estimated_cut_time_minutes=file_record.estimated_cut_time_minutes or 0,
+        complexity_score=(file_record.cut_length_mm or 0) / (file_record.area_cm2 or 1),
+    )
 
 
-@router.delete("/{file_id}")
-async def delete_file(file_id: str):
+@router.delete("/{file_id}",
+    summary="Delete uploaded file",
+    description="Remove the uploaded file from storage and delete its database record."
+)
+async def delete_file(
+    file_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Delete uploaded file"""
-    async with get_db() as db:
-        result = await db.execute(
-            UploadedFile.__table__.select().where(UploadedFile.file_id == file_id)
-        )
-        file_record = result.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        # Delete physical file
-        file_path = Path(file_record.file_path)
-        if file_path.exists():
-            file_path.unlink()
-        
-        # Delete database record
-        await db.execute(
-            UploadedFile.__table__.delete().where(UploadedFile.file_id == file_id)
-        )
-        await db.commit()
-    
-    return {"message": "File deleted successfully"}
+    result = await db.execute(
+        select(UploadedFile).where(UploadedFile.file_id == file_id)
+    )
+    file_record = result.scalar_one_or_none()
+
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Delete physical file
+    file_path = Path(file_record.file_path)
+    if file_path.exists():
+        file_path.unlink()
+
+    # Delete database record
+    await db.delete(file_record)
+    await db.commit()
+
+    return {"status": "deleted", "file_id": file_id}

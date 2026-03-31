@@ -3,6 +3,7 @@ import { Calculator, Clock, Zap, Scissors } from 'lucide-react';
 import { useAppStore } from '../store';
 import { calculateApi } from '../services';
 import { toast } from 'sonner';
+import { Skeleton } from './Skeleton';
 
 export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onCalculateComplete }) => {
   const {
@@ -105,7 +106,22 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
         </div>
       </div>
 
-      {costEstimate && (
+      {isCalculating ? (
+        <div className="cost-breakdown">
+          <h3>Calculating Cost...</h3>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="cost-item">
+              <Skeleton width="40%" height="1.2rem" />
+              <Skeleton width="20%" height="1.2rem" />
+            </div>
+          ))}
+          <div className="cost-divider"></div>
+          <div className="cost-item">
+            <Skeleton width="30%" height="1.5rem" />
+            <Skeleton width="25%" height="1.5rem" />
+          </div>
+        </div>
+      ) : costEstimate && (
         <div className="cost-breakdown">
           <h3>Cost Breakdown</h3>
           
