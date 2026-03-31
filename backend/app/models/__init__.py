@@ -43,6 +43,19 @@ class Material(Base):
 
     orders = relationship("Order", back_populates="material")
 
+    @property
+    def thicknesses_list(self) -> list:
+        """Parse available_thicknesses JSON string to list"""
+        import json
+        if not self.available_thicknesses:
+            return []
+        if isinstance(self.available_thicknesses, str):
+            try:
+                return json.loads(self.available_thicknesses)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return self.available_thicknesses if isinstance(self.available_thicknesses, list) else []
+
 
 class UploadedFile(Base):
     """Uploaded file model"""

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_HOUR: int = 1000
     RATE_LIMIT_AUTHENTICATED_PER_MINUTE: int = 300
     RATE_LIMIT_FILE_UPLOAD_PER_HOUR: int = 50
+    RATE_LIMIT_FILE_DOWNLOAD_PER_HOUR: int = 100
 
     # Request Size Limits
     MAX_REQUEST_SIZE_MB: int = 10
@@ -43,8 +44,8 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
 
     # Admin
-    ADMIN_EMAIL: str = "admin@laserhub.com"
-    ADMIN_PASSWORD: str = "admin123"
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
 
     # Laser Settings
     LASER_POWER_WATTS: float = 60.0

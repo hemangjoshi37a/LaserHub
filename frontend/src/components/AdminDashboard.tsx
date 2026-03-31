@@ -4,17 +4,15 @@ import {
   LayoutDashboard, 
   Package, 
   DollarSign, 
-  Clock, 
   TrendingUp,
   LogOut,
-  CheckCircle,
   AlertCircle,
   Loader,
   BarChart2,
+  Layers,
 } from 'lucide-react';
 import { adminApi } from '../services';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
@@ -45,7 +43,15 @@ export const AdminDashboard: React.FC = () => {
 
   const updateOrderStatus = async (orderId: number, status: string) => {
     try {
-      await adminApi.updateOrder(orderId, status);
+      let trackingData = {};
+      if (status === 'completed') {
+        const carrier = window.prompt('Enter carrier (e.g. UPS):', 'UPS');
+        const tracking = window.prompt('Enter tracking number:');
+        if (carrier && tracking) {
+          trackingData = { carrier, tracking_number: tracking };
+        }
+      }
+      await adminApi.updateOrder(orderId, { status, ...trackingData });
       toast.success('Order updated');
       loadDashboard();
     } catch (error: any) {
@@ -95,6 +101,21 @@ export const AdminDashboard: React.FC = () => {
           }}>
             <BarChart2 size={18} />
             View Analytics
+          </button>
+          <button onClick={() => navigate('/admin/materials')} className="materials-btn" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            background: '#fdf4ff',
+            color: '#a855f7',
+            border: '2px solid #f5d0fe',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 600
+          }}>
+            <Layers size={18} />
+            Manage Materials
           </button>
           <button onClick={handleLogout} className="logout-btn">
             <LogOut size={18} />

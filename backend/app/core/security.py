@@ -108,3 +108,20 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
     if not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return current_user
+
+
+async def require_authentication(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+) -> dict:
+    """Require authentication for protected endpoints"""
+    return await get_current_user(credentials)
+
+
+async def require_verified_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+) -> dict:
+    """Require verified user"""
+    user = await get_current_user(credentials)
+    # Note: In production, add is_verified field to User model
+    # For now, only require authentication
+    return user

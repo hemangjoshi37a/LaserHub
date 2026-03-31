@@ -12,9 +12,14 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+# Optimized database engine with connection pooling
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
+    pool_size=20,  # Connection pool size
+    max_overflow=10,  # Additional connections if pool exhausted
+    pool_pre_ping=True,  # Verify connections before use
+    pool_recycle=3600,  # Recycle connections after 1 hour
 )
 
 async_session_maker = async_sessionmaker(

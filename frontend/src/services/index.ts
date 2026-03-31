@@ -158,6 +158,20 @@ export const materialsApi = {
     const response = await api.get<Material>(`/materials/${id}`);
     return response.data;
   },
+
+  createMaterial: async (material: Omit<Material, 'id'>): Promise<Material> => {
+    const response = await api.post<Material>('/materials/', material);
+    return response.data;
+  },
+
+  updateMaterial: async (id: number, material: Partial<Material>): Promise<Material> => {
+    const response = await api.put<Material>(`/materials/${id}`, material);
+    return response.data;
+  },
+
+  deleteMaterial: async (id: number): Promise<void> => {
+    await api.delete(`/materials/${id}`);
+  },
 };
 
 export const calculateApi = {
@@ -285,10 +299,13 @@ export const adminApi = {
     return response.data;
   },
 
-  updateOrder: async (orderId: number, status: string): Promise<Order> => {
-    const response = await api.put<Order>(`/admin/orders/${orderId}`, {
-      status,
-    });
+  updateOrder: async (orderId: number, updateData: {
+    status?: string;
+    notes?: string;
+    carrier?: string;
+    tracking_number?: string;
+  }): Promise<Order> => {
+    const response = await api.put<Order>(`/admin/orders/${orderId}`, updateData);
     return response.data;
   },
 

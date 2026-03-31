@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class MaterialType(str, Enum):
@@ -42,6 +42,16 @@ class MaterialBase(BaseModel):
 class MaterialCreate(MaterialBase):
     """Schema for creating material"""
     pass
+
+
+class MaterialUpdate(BaseModel):
+    """Schema for updating material"""
+    name: Optional[str] = None
+    type: Optional[MaterialType] = None
+    rate_per_cm2_mm: Optional[float] = None
+    available_thicknesses: Optional[List[float]] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class MaterialResponse(MaterialBase):

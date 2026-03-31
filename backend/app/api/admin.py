@@ -7,7 +7,7 @@ import io
 from datetime import datetime, timedelta
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import desc, func, select
@@ -227,10 +227,13 @@ async def get_order(
     )
 
 
+from app.services.email_service import EmailService
+
 @router.put("/orders/{order_id}", response_model=OrderResponse)
 async def update_order(
     order_id: int,
     update_data: OrderUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     admin: str = Depends(get_current_admin)
 ):
@@ -241,11 +244,41 @@ async def update_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    old_status = order.status
+    
     # Update fields
     if update_data.status:
         order.status = update_data.status.value
     if update_data.notes:
         order.notes = update_data.notes
+    if update_data.carrier:
+        order.carrier = update_data.carrier
+    if update_data.tracking_number:
+        order.tracking_number = update_data.tracking_number
+
+    await db.commit()
+    await db.refresh(order)
+
+    # Send notifications in background
+    if update_data.status and update_data.status.value != old_status:
+        if update_data.status.value in ["in_production", "completed", "cancelled"]:
+            background_tasks.add_task(
+                EmailService.send_production_update,
+                order.customer_email,
+                order.customer_name,
+                order.order_number,
+                update_data.status.value.replace("_", " ")
+            )
+    
+    if update_data.tracking_number and update_data.tracking_number != order.tracking_number:
+         background_tasks.add_task(
+            EmailService.send_shipping_notification,
+            order.customer_email,
+            order.customer_name,
+            order.order_number,
+            update_data.carrier or "Standard Shipping",
+            update_data.tracking_number
+        )
 
     material_result = await db.execute(
         select(Material).where(Material.id == order.material_id)

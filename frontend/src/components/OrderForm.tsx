@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Mail, User, MapPin, Package } from 'lucide-react';
+import { CreditCard, Mail, User, MapPin } from 'lucide-react';
 import { useAppStore } from '../store';
 import { ordersApi, paymentApi } from '../services';
 import { toast } from 'sonner';

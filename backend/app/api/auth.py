@@ -28,17 +28,17 @@ from app.schemas import (
     VerificationRequest,
 )
 
+from app.services.email_service import EmailService
+
 router = APIRouter()
 
-async def send_verification_email(email: str, token: str):
-    """Simulate sending verification email"""
-    print(f"DEBUG: Sending verification email to {email} with token {token}")
-    # In a real app, use a mail service here
+async def send_verification_email(email: str, name: str, token: str):
+    """Send real verification email"""
+    await EmailService.send_verification_email(email, name, token)
 
 async def send_reset_email(email: str, token: str):
-    """Simulate sending password reset email"""
-    print(f"DEBUG: Sending reset email to {email} with token {token}")
-    # In a real app, use a mail service here
+    """Send real password reset email"""
+    await EmailService.send_password_reset(email, token)
 
 @router.post("/register", response_model=UserResponse)
 async def register(
@@ -72,7 +72,7 @@ async def register(
     await db.refresh(new_user)
 
     # Send verification email
-    background_tasks.add_task(send_verification_email, new_user.email, verification_token)
+    background_tasks.add_task(send_verification_email, new_user.email, new_user.name, verification_token)
 
     return new_user
 

@@ -62,6 +62,40 @@ class EmailService:
             return False
 
     @classmethod
+    async def send_verification_email(
+        cls,
+        to_email: str,
+        name: str,
+        token: str
+    ) -> bool:
+        verification_url = f"{settings.FRONTEND_URL}/verify?token={token}"
+        return await cls.send_email(
+            to_email=to_email,
+            subject="Verify your LaserHub email",
+            template_name="verification.html",
+            template_data={
+                "name": name,
+                "verification_url": verification_url
+            }
+        )
+
+    @classmethod
+    async def send_password_reset(
+        cls,
+        to_email: str,
+        token: str
+    ) -> bool:
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        return await cls.send_email(
+            to_email=to_email,
+            subject="Reset your LaserHub password",
+            template_name="password_reset.html",
+            template_data={
+                "reset_url": reset_url
+            }
+        )
+
+    @classmethod
     async def send_order_confirmation(
         cls,
         to_email: str,
