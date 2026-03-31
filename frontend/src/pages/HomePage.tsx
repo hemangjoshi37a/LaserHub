@@ -16,7 +16,7 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  const handleOrderSuccess = (order: any) => {
+  const handleOrderSuccess = () => {
     setStep(4);
   };
 

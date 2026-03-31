@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '../services';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
@@ -7,7 +7,6 @@ export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const token = searchParams.get('token');
-  const navigate = useNavigate();
 
   useEffect(() => {
     const verify = async () => {

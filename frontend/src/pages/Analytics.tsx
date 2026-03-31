@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -16,7 +14,6 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, 
-  Users, 
   Package, 
   Download, 
   ArrowLeft,

@@ -21,7 +21,7 @@ from app.middleware.rate_limiter import limiter
 router = APIRouter()
 
 # Ensure upload directory exists
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 # Allowed MIME types for validation
@@ -68,7 +68,6 @@ def validate_file_type(file: UploadFile, ext: str) -> bool:
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
-    current_user: dict = Security(require_verified_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
