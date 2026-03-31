@@ -305,11 +305,11 @@ export const MaterialManager: React.FC = () => {
                             ))}
                           </tbody>
                         </table>
-                      </div>
-                    </td>
-                  </tr>
+                        </div>
+                      </td>
+                    </tr>
                 )}
-              </React.Fragment>
+                </React.Fragment>
             ))}
           </tbody>
         </table>
