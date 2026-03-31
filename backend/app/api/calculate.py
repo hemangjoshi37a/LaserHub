@@ -5,7 +5,9 @@ Cost calculation API endpoints
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models import Material, UploadedFile
 from app.schemas import CostBreakdown, CostCalculationRequest, CostEstimate
@@ -113,7 +115,7 @@ async def preview_cost(file_id: str, db: AsyncSession = Depends(get_db)):
 
     # Calculate with default thickness
     import json
-    available_thicknesses = json.loads(material.available_thicknesses or "[3]")
+    available_thicknesses = json.loads(material.available_thicknesses_raw or "[3]")
     default_thickness = available_thicknesses[0] if available_thicknesses else 3.0
 
     cost_data = calculate_total_cost(

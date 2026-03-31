@@ -3,13 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Mail, Lock, User, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { GoogleLogin } from '../components/GoogleLogin';
 
 export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-  const { register, isLoading } = useAuthStore();
+  const { register, setUser, isLoading } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +80,13 @@ export const RegisterPage: React.FC = () => {
             Create Account
           </button>
         </form>
-        
+
+        <GoogleLogin onSuccess={(data) => {
+          localStorage.setItem('user_token', data.access_token);
+          setUser(data.user);
+          navigate('/dashboard');
+        }} />
+
         <p className="auth-footer">
           Already have an account? <Link to="/login">Login</Link>
         </p>

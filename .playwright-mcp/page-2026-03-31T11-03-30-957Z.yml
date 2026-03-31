@@ -1,0 +1,61 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡ LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ⚡
+        - text: LaserHub
+      - generic [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e11]
+          - text: Admin
+        - button "Toggle theme" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "LaserHub" [level=1] [ref=e24]
+        - paragraph [ref=e25]: Upload a design, choose material, get instant pricing.
+      - generic [ref=e26]:
+        - generic [ref=e28]: "1"
+        - img [ref=e29]
+        - generic [ref=e32]: "2"
+        - img [ref=e33]
+        - generic [ref=e36]: "3"
+        - img [ref=e37]
+        - generic [ref=e40]: "4"
+      - main [ref=e41]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - heading "Customer Information" [level=3] [ref=e57]
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]:
+                  - generic [ref=e61]:
+                    - img [ref=e62]
+                    - text: Name
+                  - textbox "John Doe" [ref=e65]
+                - generic [ref=e66]:
+                  - generic [ref=e67]:
+                    - img [ref=e68]
+                    - text: Email
+                  - textbox "john@example.com" [ref=e71]
+              - generic [ref=e72]:
+                - generic [ref=e73]:
+                  - img [ref=e74]
+                  - text: Shipping Address
+                - textbox "123 Main St, City, State 12345" [ref=e77]
+              - generic [ref=e78]:
+                - generic [ref=e79]: "Subtotal: $473.24"
+                - generic [ref=e80]: "Tax: $37.86"
+                - strong [ref=e81]: "Total: $511.09"
+              - button "Proceed to Payment" [ref=e82] [cursor=pointer]:
+                - img [ref=e83]
+                - text: Proceed to Payment
+          - button "Back" [ref=e86] [cursor=pointer]
+  - contentinfo [ref=e53]:
+    - paragraph [ref=e54]: © 2026 LaserHub · Open-source laser cutting cost calculator
+  - region "Notifications alt+T"

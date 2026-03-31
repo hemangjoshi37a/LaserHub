@@ -17,7 +17,7 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
-from app.models import Material, Order, User
+from app.models import Material, Order, UploadedFile, User
 from app.schemas import (
     OrderResponse,
     PasswordResetConfirm,
@@ -101,6 +101,65 @@ async def login(
         data={"sub": user.email, "id": user.id, "role": "user"}
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/google")
+async def google_login(
+    request_data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Login or register via Google OAuth credential"""
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+
+    credential = request_data.get("credential")
+    if not credential:
+        raise HTTPException(status_code=400, detail="Missing credential")
+
+    try:
+        # Verify the Google ID token
+        idinfo = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo.get("email")
+        name = idinfo.get("name", email.split("@")[0])
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
+
+        # Check if user exists
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # Auto-register Google users
+            user = User(
+                email=email,
+                name=name,
+                hashed_password=get_password_hash(str(uuid.uuid4())),  # Random password
+                is_verified=True,  # Google-verified email
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+        # Create JWT token
+        access_token = create_access_token(
+            data={"sub": user.email, "id": user.id, "role": "user"}
+        )
+        return {"access_token": access_token, "token_type": "bearer", "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "is_verified": user.is_verified,
+        }}
+
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Google auth error: {str(e)}")
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
 async def verify_email(request: VerificationRequest, db: AsyncSession = Depends(get_db)):
@@ -205,10 +264,16 @@ async def get_user_orders(
         )
         material = material_result.scalar_one_or_none()
 
+        # Get actual file UUID instead of the internal DB row ID
+        file_result = await db.execute(
+            select(UploadedFile).where(UploadedFile.id == order.file_id)
+        )
+        uploaded_file = file_result.scalar_one_or_none()
+
         order_responses.append(OrderResponse(
             id=order.id,
             order_number=order.order_number,
-            file_id=str(order.file_id),
+            file_id=uploaded_file.file_id if uploaded_file else str(order.file_id),
             material_name=material.name if material else "Unknown",
             thickness_mm=order.thickness_mm,
             quantity=order.quantity,

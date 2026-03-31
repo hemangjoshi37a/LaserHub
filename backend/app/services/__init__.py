@@ -2,6 +2,6 @@
 Services module initialization
 """
 
-from app.services.cost_calculator import calculate_total_cost, get_material_rate
+from app.services.cost_calculator import calculate_total_cost, calculate_total_cost_v2
 
-__all__ = ["calculate_total_cost", "get_material_rate"]
+__all__ = ["calculate_total_cost", "calculate_total_cost_v2"]

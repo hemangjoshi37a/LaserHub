@@ -16,6 +16,8 @@ export interface Material {
   rate_per_cm2_mm: number;
   available_thicknesses: number[];
   description?: string;
+  color_hex?: string;
+  is_active?: boolean;
   configs: MaterialConfig[];
 }
 
@@ -93,11 +95,11 @@ export const authApi = {
   },
 
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
+    const params = new URLSearchParams();
+    params.append('username', email);
+    params.append('password', password);
 
-    const response = await api.post<AuthResponse>('/auth/login', formData, {
+    const response = await api.post<AuthResponse>('/auth/login', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -130,6 +132,11 @@ export const authApi = {
       token,
       new_password: newPassword,
     });
+    return response.data;
+  },
+
+  googleLogin: async (credential: string): Promise<AuthResponse & { user: User }> => {
+    const response = await api.post('/auth/google', { credential });
     return response.data;
   },
 };
@@ -296,11 +303,11 @@ export const adminApi = {
     access_token: string;
     token_type: string;
   }> => {
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
+    const params = new URLSearchParams();
+    params.append('username', email);
+    params.append('password', password);
 
-    const response = await api.post('/admin/login', formData, {
+    const response = await api.post('/admin/login', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -338,6 +345,22 @@ export const adminApi = {
     const response = await api.get('/admin/orders/export', {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  getSettings: async (category?: string): Promise<any[]> => {
+    const params = category ? { category } : {};
+    const response = await api.get('/admin/settings', { params });
+    return response.data;
+  },
+
+  updateSettings: async (settings: any[]): Promise<any> => {
+    const response = await api.put('/admin/settings', settings);
+    return response.data;
+  },
+
+  seedPaymentSettings: async (): Promise<any> => {
+    const response = await api.post('/admin/settings/seed-payment');
     return response.data;
   },
 };

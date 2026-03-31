@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Layers, Ruler, Package, Info, FileText, Trees, Box, Wallet, CircleDot, Cpu } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Layers, Ruler, Package, FileText, Trees, Box, Wallet, CircleDot, Cpu } from 'lucide-react';
 import { useAppStore } from '../store';
 import { materialsApi } from '../services';
 import { toast } from 'sonner';
@@ -61,15 +61,14 @@ export const MaterialSelector: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="material-selector animate-in">
-        <h2>Select Material & Specifications</h2>
-        <div className="material-grid">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="material-card" style={{ cursor: 'default' }}>
-              <Skeleton width={48} height={48} borderRadius="12px" />
-              <Skeleton width="80%" height="1.5rem" style={{ margin: '1rem auto' }} />
-              <Skeleton width="60%" height="1rem" style={{ margin: '0.5rem auto' }} />
-              <Skeleton width="40%" height="1.2rem" style={{ margin: '0.5rem auto' }} />
+      <div className="material-selector material-selector-compact animate-in">
+        <h3>Material & Specifications</h3>
+        <div className="material-grid material-grid-dense">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="material-card material-card-compact" style={{ cursor: 'default' }}>
+              <Skeleton width={24} height={24} borderRadius="6px" />
+              <Skeleton width="80%" height="1rem" style={{ margin: '0.5rem auto' }} />
+              <Skeleton width="50%" height="0.8rem" style={{ margin: '0.25rem auto' }} />
             </div>
           ))}
         </div>
@@ -78,109 +77,75 @@ export const MaterialSelector: React.FC = () => {
   }
 
   return (
-    <div className="material-selector animate-in">
-      <h2>Select Material & Specifications</h2>
+    <div className="material-selector material-selector-compact animate-in">
+      <h3>Material & Specifications</h3>
 
-      <div className="material-grid">
+      <div className="material-grid material-grid-dense">
         {materials.map((material) => {
           const Icon = MATERIAL_ICONS[material.type] || Layers;
           return (
             <div
               key={material.id}
-              className={`material-card ${selectedMaterial?.id === material.id ? 'selected' : ''}`}
+              className={`material-card material-card-compact ${selectedMaterial?.id === material.id ? 'selected' : ''}`}
               onClick={() => handleMaterialChange(material)}
-              style={{
-                '--material-color': material.color_hex || '#0ea5e9',
-              } as React.CSSProperties}
+              title={material.description || ''}
             >
-              <div 
-                className="material-card-icon"
-                style={{
-                  background: `linear-gradient(135deg, ${material.color_hex}20, ${material.color_hex}40)`,
-                }}
-              >
-                <Icon size={28} style={{ color: material.color_hex }} />
-              </div>
-              <div 
-                className="material-color-swatch"
-                style={{ backgroundColor: material.color_hex }}
-                title={`Color: ${material.color_hex}`}
+              <div
+                className="material-color-accent"
+                style={{ backgroundColor: material.color_hex || '#0ea5e9' }}
               />
-              <h3>{material.name}</h3>
-              <p className="material-type">{material.type.replace('_', ' ')}</p>
-              <p className="material-rate">${material.rate_per_cm2_mm.toFixed(3)}/cm²/mm</p>
-              {material.description && (
-                <div className="material-info-tooltip">
-                  <Info size={14} />
-                  <span>{material.description}</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-                  <Info size={14} />
-                  <span>{material.description}</span>
-                </div>
-              )}
+              <div className="material-card-icon">
+                <Icon size={18} />
+              </div>
+              <h4>{material.name}</h4>
+              <span className="material-rate">${material.rate_per_cm2_mm.toFixed(3)}/cm²</span>
             </div>
           );
         })}
       </div>
 
       {selectedMaterial && (
-        <div className="specifications animate-in">
-          <div className="spec-group">
-            <label>
-              <Ruler size={18} />
-              Thickness (mm)
-            </label>
-            <div className="thickness-options">
+        <div className="specifications specifications-inline animate-in">
+          <div className="spec-group spec-group-inline">
+            <label><Ruler size={14} /> Thickness</label>
+            <div className="thickness-options thickness-options-compact">
               {selectedMaterial.available_thicknesses.map((thickness) => {
                 const config = selectedMaterial.configs?.find(c => c.thickness_mm === thickness);
                 const isOutOfStock = config && !config.is_in_stock;
-                
+
                 return (
                   <button
                     key={thickness}
-                    className={`thickness-btn ${selectedThickness === thickness ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
+                    className={`thickness-btn thickness-btn-sm ${selectedThickness === thickness ? 'selected' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}
                     onClick={() => !isOutOfStock && setSelectedThickness(thickness)}
                     disabled={isOutOfStock}
-                    title={isOutOfStock ? 'Currently out of stock' : ''}
+                    title={isOutOfStock ? 'Out of stock' : `${thickness}mm`}
                   >
-                    {thickness}mm
-                    {isOutOfStock && <span className="stock-tag">Out of Stock</span>}
+                    {thickness}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="spec-group">
-            <label>
-              <Package size={18} />
-              Quantity
-            </label>
-            <div className="quantity-selector">
+          <div className="spec-group spec-group-inline">
+            <label><Package size={14} /> Qty</label>
+            <div className="quantity-selector quantity-selector-compact">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
                 disabled={quantity <= 1}
                 aria-label="Decrease quantity"
-              >
-                -
-              </button>
+              >-</button>
               <input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                 min="1"
               />
-              <button 
+              <button
                 onClick={() => setQuantity(quantity + 1)}
                 aria-label="Increase quantity"
-              >
-                +
-              </button>
+              >+</button>
             </div>
           </div>
         </div>

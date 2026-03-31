@@ -1,0 +1,66 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡ LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ⚡
+        - text: LaserHub
+      - generic [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e11]
+          - text: Admin
+        - button "Toggle theme" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "LaserHub" [level=1] [ref=e24]
+        - paragraph [ref=e25]: Instant Laser Cutting Cost Calculator
+        - paragraph [ref=e26]: Upload your design files, choose a material, and get accurate pricing in seconds.
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]: "1"
+          - generic [ref=e30]: Upload
+        - img [ref=e31]
+        - generic [ref=e33]:
+          - generic [ref=e34]: "2"
+          - generic [ref=e35]: Configure
+        - img [ref=e36]
+        - generic [ref=e38]:
+          - generic [ref=e39]: "3"
+          - generic [ref=e40]: Review
+        - img [ref=e41]
+        - generic [ref=e43]:
+          - generic [ref=e44]: "4"
+          - generic [ref=e45]: Order
+      - main [ref=e46]:
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - heading "Upload Your Design" [level=2] [ref=e49]
+            - paragraph [ref=e50]: Support for DXF, SVG, AI, PDF, and EPS files
+            - generic [ref=e51]:
+              - img "Design Preview" [ref=e65]
+              - generic [ref=e66]:
+                - generic [ref=e67]:
+                  - img [ref=e68]
+                  - generic [ref=e71]:
+                    - paragraph [ref=e72]: mew_dove_2b_b55.svg
+                    - paragraph [ref=e73]: 683.7 KB • SVG
+                  - img [ref=e74]
+                - button "Remove file" [ref=e77] [cursor=pointer]:
+                  - img [ref=e78]
+          - 'button "Next: Select Material" [ref=e81] [cursor=pointer]':
+            - text: "Next: Select Material"
+            - img [ref=e82]
+  - contentinfo [ref=e62]:
+    - paragraph [ref=e63]: © 2026 LaserHub · Open-source laser cutting cost calculator
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e84]:
+        - img [ref=e86]
+        - generic [ref=e88]:
+          - generic [ref=e89]: File uploaded successfully!
+          - generic [ref=e90]: mew_dove_2b_b55.svg - 683.7 KB

@@ -17,7 +17,7 @@ export const AdminLogin: React.FC = () => {
     try {
       const response = await adminApi.login(email, password);
       localStorage.setItem('admin_token', response.access_token);
-      
+
       toast.success('Login successful!');
       navigate('/admin/dashboard');
     } catch (error: any) {
@@ -33,7 +33,7 @@ export const AdminLogin: React.FC = () => {
     <div className="admin-login-page">
       <div className="login-card">
         <div className="login-header">
-          <LogIn size={48} />
+          <LogIn size={32} />
           <h1>Admin Login</h1>
           <p>LaserHub Administration</p>
         </div>
@@ -57,7 +57,7 @@ export const AdminLogin: React.FC = () => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter password"
             />
           </div>
 

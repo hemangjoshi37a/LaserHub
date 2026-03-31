@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token
-from app.models import Material, Order
+from app.models import AppSetting, Material, Order, UploadedFile
 from app.schemas import (
     AdminToken,
     AnalyticsData,
@@ -31,6 +31,36 @@ from app.schemas import (
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/login")
+
+
+async def _build_order_response(order: Order, db: AsyncSession) -> OrderResponse:
+    """Build OrderResponse from Order model, resolving material name and file UUID."""
+    material_result = await db.execute(
+        select(Material).where(Material.id == order.material_id)
+    )
+    material = material_result.scalar_one_or_none()
+
+    # Get actual file UUID instead of the internal DB row ID
+    file_result = await db.execute(
+        select(UploadedFile).where(UploadedFile.id == order.file_id)
+    )
+    uploaded_file = file_result.scalar_one_or_none()
+
+    return OrderResponse(
+        id=order.id,
+        order_number=order.order_number,
+        file_id=uploaded_file.file_id if uploaded_file else str(order.file_id),
+        material_name=material.name if material else "Unknown",
+        thickness_mm=order.thickness_mm,
+        quantity=order.quantity,
+        total_amount=order.total_amount,
+        status=order.status,
+        customer_email=order.customer_email,
+        customer_name=order.customer_name,
+        shipping_address=order.shipping_address,
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
 
 
 async def get_current_admin(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
@@ -120,26 +150,7 @@ async def get_dashboard(
 
     recent_order_responses = []
     for order in recent_orders:
-        material_result = await db.execute(
-            select(Material).where(Material.id == order.material_id)
-        )
-        material = material_result.scalar_one_or_none()
-
-        recent_order_responses.append(OrderResponse(
-            id=order.id,
-            order_number=order.order_number,
-            file_id=str(order.file_id),
-            material_name=material.name if material else "Unknown",
-            thickness_mm=order.thickness_mm,
-            quantity=order.quantity,
-            total_amount=order.total_amount,
-            status=order.status,
-            customer_email=order.customer_email,
-            customer_name=order.customer_name,
-            shipping_address=order.shipping_address,
-            created_at=order.created_at,
-            updated_at=order.updated_at,
-        ))
+        recent_order_responses.append(await _build_order_response(order, db))
 
     return DashboardStats(
         total_orders=total_orders,
@@ -168,26 +179,7 @@ async def list_all_orders(
 
     order_responses = []
     for order in orders:
-        material_result = await db.execute(
-            select(Material).where(Material.id == order.material_id)
-        )
-        material = material_result.scalar_one_or_none()
-
-        order_responses.append(OrderResponse(
-            id=order.id,
-            order_number=order.order_number,
-            file_id=str(order.file_id),
-            material_name=material.name if material else "Unknown",
-            thickness_mm=order.thickness_mm,
-            quantity=order.quantity,
-            total_amount=order.total_amount,
-            status=order.status,
-            customer_email=order.customer_email,
-            customer_name=order.customer_name,
-            shipping_address=order.shipping_address,
-            created_at=order.created_at,
-            updated_at=order.updated_at,
-        ))
+        order_responses.append(await _build_order_response(order, db))
 
     return order_responses
 
@@ -205,26 +197,7 @@ async def get_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    material_result = await db.execute(
-        select(Material).where(Material.id == order.material_id)
-    )
-    material = material_result.scalar_one_or_none()
-
-    return OrderResponse(
-        id=order.id,
-        order_number=order.order_number,
-        file_id=str(order.file_id),
-        material_name=material.name if material else "Unknown",
-        thickness_mm=order.thickness_mm,
-        quantity=order.quantity,
-        total_amount=order.total_amount,
-        status=order.status,
-        customer_email=order.customer_email,
-        customer_name=order.customer_name,
-        shipping_address=order.shipping_address,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-    )
+    return await _build_order_response(order, db)
 
 
 from app.services.email_service import EmailService
@@ -245,7 +218,8 @@ async def update_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     old_status = order.status
-    
+    old_tracking = order.tracking_number
+
     # Update fields
     if update_data.status:
         order.status = update_data.status.value
@@ -269,9 +243,11 @@ async def update_order(
                 order.order_number,
                 update_data.status.value.replace("_", " ")
             )
-    
-    if update_data.tracking_number and update_data.tracking_number != order.tracking_number:
-         background_tasks.add_task(
+
+    # Compare against old_tracking captured before the update/commit,
+    # since order.tracking_number already reflects the new value at this point.
+    if update_data.tracking_number and update_data.tracking_number != old_tracking:
+        background_tasks.add_task(
             EmailService.send_shipping_notification,
             order.customer_email,
             order.customer_name,
@@ -280,26 +256,7 @@ async def update_order(
             update_data.tracking_number
         )
 
-    material_result = await db.execute(
-        select(Material).where(Material.id == order.material_id)
-    )
-    material = material_result.scalar_one_or_none()
-
-    return OrderResponse(
-        id=order.id,
-        order_number=order.order_number,
-        file_id=str(order.file_id),
-        material_name=material.name if material else "Unknown",
-        thickness_mm=order.thickness_mm,
-        quantity=order.quantity,
-        total_amount=order.total_amount,
-        status=order.status,
-        customer_email=order.customer_email,
-        customer_name=order.customer_name,
-        shipping_address=order.shipping_address,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-    )
+    return await _build_order_response(order, db)
 
 
 @router.get("/analytics", response_model=AnalyticsData)
@@ -431,3 +388,89 @@ async def export_orders(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=orders_export.csv"}
     )
+
+
+@router.get("/settings")
+async def get_settings(
+    category: str = None,
+    db: AsyncSession = Depends(get_db),
+    admin: str = Depends(get_current_admin)
+):
+    """Get app settings (admin only). Secret values are masked."""
+    query = select(AppSetting)
+    if category:
+        query = query.where(AppSetting.category == category)
+    result = await db.execute(query)
+    settings_list = result.scalars().all()
+
+    return [
+        {
+            "id": s.id,
+            "key": s.key,
+            "value": "••••••••" if s.is_secret else s.value,
+            "category": s.category,
+            "is_secret": s.is_secret,
+            "updated_at": s.updated_at,
+        }
+        for s in settings_list
+    ]
+
+
+@router.put("/settings")
+async def update_settings(
+    settings_data: list,
+    db: AsyncSession = Depends(get_db),
+    admin: str = Depends(get_current_admin)
+):
+    """Update multiple settings at once (admin only)"""
+    for item in settings_data:
+        key = item.get("key")
+        value = item.get("value")
+        category = item.get("category", "payment")
+        is_secret = item.get("is_secret", False)
+
+        if not key:
+            continue
+
+        # Skip if value is the masked placeholder
+        if value == "••••••••":
+            continue
+
+        result = await db.execute(select(AppSetting).where(AppSetting.key == key))
+        setting = result.scalar_one_or_none()
+
+        if setting:
+            setting.value = value
+            setting.is_secret = is_secret
+        else:
+            setting = AppSetting(key=key, value=value, category=category, is_secret=is_secret)
+            db.add(setting)
+
+    await db.commit()
+    return {"status": "updated"}
+
+
+@router.post("/settings/seed-payment")
+async def seed_payment_settings(
+    db: AsyncSession = Depends(get_db),
+    admin: str = Depends(get_current_admin)
+):
+    """Initialize default payment settings keys"""
+    defaults = [
+        {"key": "payment_gateway", "value": "stripe", "category": "payment", "is_secret": False},
+        {"key": "stripe_public_key", "value": "", "category": "payment", "is_secret": False},
+        {"key": "stripe_secret_key", "value": "", "category": "payment", "is_secret": True},
+        {"key": "stripe_webhook_secret", "value": "", "category": "payment", "is_secret": True},
+        {"key": "razorpay_key_id", "value": "", "category": "payment", "is_secret": False},
+        {"key": "razorpay_key_secret", "value": "", "category": "payment", "is_secret": True},
+        {"key": "currency", "value": "usd", "category": "payment", "is_secret": False},
+        {"key": "tax_rate", "value": "0.08", "category": "payment", "is_secret": False},
+    ]
+
+    for d in defaults:
+        result = await db.execute(select(AppSetting).where(AppSetting.key == d["key"]))
+        if not result.scalar_one_or_none():
+            db.add(AppSetting(**d))
+
+    await db.commit()
+    return {"status": "seeded"}

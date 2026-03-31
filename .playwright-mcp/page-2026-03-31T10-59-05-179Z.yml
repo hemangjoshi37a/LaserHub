@@ -1,0 +1,49 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡ LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ⚡
+        - text: LaserHub
+      - generic [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e11]
+          - text: Admin
+        - button "Toggle theme" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "LaserHub" [level=1] [ref=e24]
+        - paragraph [ref=e25]: Upload a design, choose material, get instant pricing.
+      - generic [ref=e26]:
+        - generic [ref=e28]: "1"
+        - img [ref=e30]
+        - generic [ref=e33]: "2"
+        - img [ref=e35]
+        - generic [ref=e38]: "3"
+        - img [ref=e40]
+        - generic [ref=e43]: "4"
+      - main [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - heading "Upload Your Design" [level=3] [ref=e48]
+            - paragraph [ref=e49]: DXF, SVG, AI, PDF, and EPS supported
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - img "Preview" [ref=e61]
+                - generic [ref=e62]:
+                  - text: mew_dove_2b_b55.svg
+                  - generic [ref=e63]: 683.7 KB · SVG
+                - img [ref=e64]
+              - button "Remove file" [ref=e67] [cursor=pointer]:
+                - img [ref=e68]
+          - 'button "Next: Select Material" [ref=e71] [cursor=pointer]':
+            - text: "Next: Select Material"
+            - img [ref=e72]
+  - contentinfo [ref=e57]:
+    - paragraph [ref=e58]: © 2026 LaserHub · Open-source laser cutting cost calculator
+  - region "Notifications alt+T"

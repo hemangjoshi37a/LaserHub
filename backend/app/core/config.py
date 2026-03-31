@@ -2,10 +2,14 @@
 Configuration settings for LaserHub
 """
 
+import os
+from pathlib import Path
 from typing import List
 
 from pydantic_settings import BaseSettings
 
+# Base directory of the backend
+BASE_DIR = Path(__file__).parent.parent.parent
 
 class Settings(BaseSettings):
     """Application settings"""
@@ -37,6 +41,9 @@ class Settings(BaseSettings):
     # API Versioning
     API_VERSION: str = "v1"
     LATEST_API_VERSION: str = "v1"
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
 
     # Stripe
     STRIPE_SECRET_KEY: str = ""
@@ -74,9 +81,11 @@ class Settings(BaseSettings):
     LOG_REQUEST_BODY: bool = False  # Disable in production for security
     LOG_RESPONSE_BODY: bool = False  # Disable in production for security
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {
+        "env_file": str(BASE_DIR / ".env"),
+        "case_sensitive": True,
+        "extra": "ignore"
+    }
 
 
 settings = Settings()

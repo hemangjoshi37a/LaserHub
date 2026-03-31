@@ -58,18 +58,7 @@ function App() {
         </main>
 
         <footer className="footer">
-          <p>
-            © 2026 LaserHub. Open Source Laser Cutting Cost Calculator.
-          </p>
-          <p className="footer-links">
-            <a href="https://github.com/your-username/LaserHub" target="_blank" rel="noopener noreferrer">
-              GitHub
-            </a>
-            <span>•</span>
-            <a href="https://github.com/your-username/LaserHub/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">
-              Contribute
-            </a>
-          </p>
+          <p>&copy; 2026 LaserHub &middot; Open-source laser cutting cost calculator</p>
         </footer>
 
         <Toaster position="top-right" richColors />

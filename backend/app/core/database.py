@@ -13,14 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 # Optimized database engine with connection pooling
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_size=20,  # Connection pool size
-    max_overflow=10,  # Additional connections if pool exhausted
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=3600,  # Recycle connections after 1 hour
-)
+engine_kwargs = {
+    "echo": False,
+}
+
+if "sqlite" in settings.DATABASE_URL:
+    # SQLite doesn't support connection pooling
+    from sqlalchemy.pool import StaticPool
+    engine_kwargs["poolclass"] = StaticPool
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_size"] = 20
+    engine_kwargs["max_overflow"] = 10
+    engine_kwargs["pool_pre_ping"] = True
+    engine_kwargs["pool_recycle"] = 3600
+
+engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
 async_session_maker = async_sessionmaker(
     engine,
@@ -35,7 +43,16 @@ class Base(DeclarativeBase):
 
 
 async def get_db() -> AsyncSession:
-    """Dependency for getting database session"""
+    """Dependency for getting database session.
+
+    Note on commit behavior: This generator commits after yield as a safety net.
+    Many API endpoints already call ``await db.commit()`` explicitly within the
+    endpoint body.  The second commit here is a no-op in that case (SQLAlchemy
+    treats committing a session with no pending changes as harmless).  This
+    pattern ensures that if an endpoint forgets to commit, changes are still
+    persisted.  However, endpoints should still commit explicitly for clarity
+    and to control exactly when writes are flushed.
+    """
     async with async_session_maker() as session:
         try:
             yield session

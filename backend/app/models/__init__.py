@@ -36,7 +36,7 @@ class Material(Base):
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)
     rate_per_cm2_mm = Column(Float, nullable=False)
-    available_thicknesses = Column(Text)  # JSON string of thickness values
+    available_thicknesses_raw = Column("available_thicknesses", Text)  # Map to actual DB column name
     description = Column(Text)
     is_active = Column(Boolean, default=True)
     color_hex = Column(String, default="#0ea5e9")  # Material color for UI
@@ -46,17 +46,17 @@ class Material(Base):
     configs = relationship("MaterialConfig", back_populates="material", cascade="all, delete-orphan")
 
     @property
-    def thicknesses_list(self) -> list:
-        """Parse available_thicknesses JSON string to list"""
+    def available_thicknesses(self) -> list:
+        """Parse available_thicknesses JSON string to list for Pydantic"""
         import json
-        if not self.available_thicknesses:
+        if not self.available_thicknesses_raw:
             return []
-        if isinstance(self.available_thicknesses, str):
+        if isinstance(self.available_thicknesses_raw, str):
             try:
-                return json.loads(self.available_thicknesses)
+                return json.loads(self.available_thicknesses_raw)
             except (json.JSONDecodeError, TypeError):
                 return []
-        return self.available_thicknesses if isinstance(self.available_thicknesses, list) else []
+        return self.available_thicknesses_raw if isinstance(self.available_thicknesses_raw, list) else []
 
 
 class MaterialConfig(Base):
@@ -133,3 +133,15 @@ class Order(Base):
     uploaded_file = relationship("UploadedFile", back_populates="orders")
     material = relationship("Material", back_populates="orders")
     user = relationship("User", back_populates="orders")
+
+
+class AppSetting(Base):
+    """Application settings stored in DB"""
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, nullable=False, index=True)
+    value = Column(Text, nullable=True)
+    category = Column(String, nullable=False, default="general")
+    is_secret = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

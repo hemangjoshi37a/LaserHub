@@ -118,10 +118,16 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
     )
     material = material_result.scalar_one_or_none()
 
+    # Get actual file UUID instead of the internal DB row ID
+    file_result = await db.execute(
+        select(UploadedFile).where(UploadedFile.id == order.file_id)
+    )
+    uploaded_file = file_result.scalar_one_or_none()
+
     return OrderResponse(
         id=order.id,
         order_number=order.order_number,
-        file_id=order.file_id,
+        file_id=uploaded_file.file_id if uploaded_file else str(order.file_id),
         material_name=material.name if material else "Unknown",
         thickness_mm=order.thickness_mm,
         quantity=order.quantity,
@@ -157,10 +163,16 @@ async def list_orders(
         )
         material = material_result.scalar_one_or_none()
 
+        # Get actual file UUID instead of the internal DB row ID
+        file_result = await db.execute(
+            select(UploadedFile).where(UploadedFile.id == order.file_id)
+        )
+        uploaded_file = file_result.scalar_one_or_none()
+
         order_responses.append(OrderResponse(
             id=order.id,
             order_number=order.order_number,
-            file_id=order.file_id,
+            file_id=uploaded_file.file_id if uploaded_file else str(order.file_id),
             material_name=material.name if material else "Unknown",
             thickness_mm=order.thickness_mm,
             quantity=order.quantity,

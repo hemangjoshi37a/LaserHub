@@ -64,7 +64,7 @@ def validate_file_type(file: UploadFile, ext: str) -> bool:
     summary="Upload a vector file",
     description="Upload a vector file (DXF, SVG, AI, etc.) for laser cutting cost calculation."
 )
-@limiter.limit(settings.RATE_LIMIT_FILE_UPLOAD_PER_HOUR)
+@limiter.limit(f"{settings.RATE_LIMIT_FILE_UPLOAD_PER_HOUR} per hour")
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
@@ -172,7 +172,7 @@ async def get_raw_file(
     return FileResponse(
         path=file_path,
         filename=file_record.filename,
-        media_type=f"image/{file_record.file_type}" if file_record.file_type == "svg" else "application/octet-stream"
+        media_type="image/svg+xml" if file_record.file_type == "svg" else "application/octet-stream"
     )
 
 

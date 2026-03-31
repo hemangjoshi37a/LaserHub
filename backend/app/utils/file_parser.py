@@ -271,14 +271,27 @@ def parse_pdf(file_path: str) -> Dict[str, Any]:
     and usually requires tools like inkscape or ghostscript.
     Here we provide a placeholder that estimates based on page size.
     """
-    from pypdf import PdfReader
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        logger.warning("pypdf is not installed. PDF parsing unavailable.")
+        raise ValueError("PDF parsing requires the 'pypdf' package")
 
-    reader = PdfReader(file_path)
-    page = reader.pages[0]
-    # Page size is usually in points (1/72 inch)
-    box = page.mediabox
-    width_pt = float(box.width)
-    height_pt = float(box.height)
+    try:
+        reader = PdfReader(file_path)
+        if len(reader.pages) == 0:
+            raise ValueError("PDF file has no pages")
+
+        page = reader.pages[0]
+        # Page size is usually in points (1/72 inch)
+        box = page.mediabox
+        width_pt = float(box.width)
+        height_pt = float(box.height)
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to read PDF file {file_path}: {e}")
+        raise ValueError(f"Invalid PDF file: {e}")
 
     width_mm = width_pt * 25.4 / 72
     height_mm = height_pt * 25.4 / 72
@@ -340,18 +353,43 @@ def validate_geometry(msp) -> Dict[str, Any]:
     else:
         return {"is_valid": False, "warnings": warnings}
 
+def _default_parse_result(file_path: str, fmt: str, error: str) -> Dict[str, Any]:
+    """Return sensible defaults when parsing fails."""
+    return {
+        "format": fmt,
+        "width_mm": 0.0,
+        "height_mm": 0.0,
+        "area_cm2": 0.0,
+        "cut_length_mm": 0.0,
+        "error": error,
+        "validation": {"is_valid": False, "warnings": [error]},
+    }
+
+
 def parse_generic(file_path: str) -> Dict[str, Any]:
     """
-    Determine format and parse.
+    Determine format and parse. Returns sensible defaults on failure
+    instead of crashing, so callers always get a result dict.
     """
     ext = Path(file_path).suffix.lower()
-    if ext == '.dxf':
-        return parse_dxf(file_path)
-    elif ext == '.svg':
-        return parse_svg(file_path)
-    elif ext == '.pdf':
-        return parse_pdf(file_path)
-    elif ext in ('.ai', '.eps'):
-        return parse_ai(file_path)
-    else:
+
+    parsers = {
+        '.dxf': ('DXF', parse_dxf),
+        '.svg': ('SVG', parse_svg),
+        '.pdf': ('PDF', parse_pdf),
+        '.ai': ('AI', parse_ai),
+        '.eps': ('EPS', parse_ai),
+    }
+
+    if ext not in parsers:
         raise ValueError(f"Unsupported file format: {ext}")
+
+    fmt, parser_fn = parsers[ext]
+    try:
+        return parser_fn(file_path)
+    except ValueError:
+        # Re-raise ValueError (already a known parse error with a message)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error parsing {fmt} file {file_path}: {e}")
+        return _default_parse_result(file_path, fmt, str(e))

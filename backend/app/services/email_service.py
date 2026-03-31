@@ -1,19 +1,37 @@
+import logging
 import os
 from datetime import datetime
 from email.message import EmailMessage
 from typing import Any, Dict, Optional
 
-import aiosmtplib
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Try to import optional dependencies gracefully
+try:
+    import aiosmtplib
+except ImportError:
+    aiosmtplib = None  # type: ignore[assignment]
+    logger.warning("aiosmtplib is not installed. Email sending will be mocked.")
+
+try:
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+except ImportError:
+    Environment = None  # type: ignore[assignment,misc]
+    logger.warning("jinja2 is not installed. Email templates will not be available.")
 
 # Setup jinja2 environment for email templates
 templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "email")
-env = Environment(
-    loader=FileSystemLoader(templates_dir),
-    autoescape=select_autoescape(['html', 'xml'])
-)
+env = None
+if Environment is not None:
+    try:
+        env = Environment(
+            loader=FileSystemLoader(templates_dir),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+    except Exception as e:
+        logger.warning(f"Failed to initialize email template environment: {e}. Email templates will not be available.")
 
 class EmailService:
     @staticmethod
@@ -25,8 +43,23 @@ class EmailService:
     ) -> bool:
         """
         Generic method to send an email using a template.
+        Returns True on success, False on failure. Never raises.
         """
         try:
+            # Check if SMTP is configured at all
+            if not getattr(settings, "SMTP_SERVER", None) or settings.SMTP_SERVER == "mock":
+                logger.info(f"MOCK EMAIL to {to_email}: {subject} (SMTP not configured)")
+                return True
+
+            # Check if required dependencies are available
+            if env is None:
+                logger.warning(f"Cannot send email to {to_email}: template engine not available")
+                return False
+
+            if aiosmtplib is None:
+                logger.warning(f"Cannot send email to {to_email}: aiosmtplib not installed")
+                return False
+
             # Add common data to templates
             template_data["year"] = datetime.now().year
 
@@ -42,12 +75,6 @@ class EmailService:
             message.set_content("Please use an HTML compatible email client to view this message.")
             message.add_alternative(html_content, subtype="html")
 
-            # Send email
-            if settings.SMTP_SERVER == "mock" or not settings.SMTP_SERVER:
-                print(f"MOCK EMAIL SENT to {to_email}: {subject}")
-                # In a real app, you might log this to a file or a mock service
-                return True
-
             await aiosmtplib.send(
                 message,
                 hostname=settings.SMTP_SERVER,
@@ -58,7 +85,7 @@ class EmailService:
             )
             return True
         except Exception as e:
-            print(f"Error sending email: {e}")
+            logger.error(f"Error sending email to {to_email}: {e}")
             return False
 
     @classmethod

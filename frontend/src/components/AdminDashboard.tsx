@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  Package,
+  DollarSign,
   TrendingUp,
   LogOut,
   AlertCircle,
   Loader,
   BarChart2,
+  CreditCard,
   Layers,
 } from 'lucide-react';
 import { adminApi } from '../services';
@@ -73,7 +74,7 @@ export const AdminDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="admin-dashboard loading">
-        <Loader className="spinner" size={48} />
+        <Loader className="spinner" size={32} />
         <p>Loading dashboard...</p>
       </div>
     );
@@ -83,44 +84,24 @@ export const AdminDashboard: React.FC = () => {
     <div className="admin-dashboard animate-in">
       <header className="admin-header">
         <div className="header-left">
-          <LayoutDashboard size={28} />
-          <h1>Admin Dashboard</h1>
+          <LayoutDashboard size={20} />
+          <h1>Dashboard</h1>
         </div>
-        <div className="header-actions" style={{ display: 'flex', gap: '1rem' }}>
-          <button onClick={() => navigate('/admin/analytics')} className="analytics-btn" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            padding: '0.75rem 1.25rem',
-            background: 'rgba(14, 165, 233, 0.1)',
-            color: 'var(--accent-color)',
-            border: '1px solid rgba(14, 165, 233, 0.2)',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            fontWeight: 700,
-            transition: 'all 0.2s'
-          }}>
-            <BarChart2 size={18} />
+        <div className="header-actions">
+          <button onClick={() => navigate('/admin/analytics')} className="header-nav-btn header-nav-btn--analytics">
+            <BarChart2 size={15} />
             Analytics
           </button>
-          <button onClick={() => navigate('/admin/materials')} className="materials-btn" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem',
-            padding: '0.75rem 1.25rem',
-            background: 'rgba(168, 85, 247, 0.1)',
-            color: '#a855f7',
-            border: '1px solid rgba(168, 85, 247, 0.2)',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            fontWeight: 700,
-            transition: 'all 0.2s'
-          }}>
-            <Layers size={18} />
+          <button onClick={() => navigate('/admin/materials')} className="header-nav-btn header-nav-btn--materials">
+            <Layers size={15} />
             Materials
           </button>
+          <button onClick={() => navigate('/admin/payments')} className="header-nav-btn header-nav-btn--payments">
+            <CreditCard size={15} />
+            Payments
+          </button>
           <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={18} />
+            <LogOut size={15} />
             Logout
           </button>
         </div>
@@ -129,7 +110,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon">
-            <Package size={28} />
+            <Package size={20} />
           </div>
           <div className="stat-info">
             <p className="stat-label">Total Orders</p>
@@ -139,30 +120,30 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="stat-card">
           <div className="stat-icon warning">
-            <AlertCircle size={28} />
+            <AlertCircle size={20} />
           </div>
           <div className="stat-info">
-            <p className="stat-label">Pending Orders</p>
+            <p className="stat-label">Pending</p>
             <p className="stat-value">{stats?.pending_orders || 0}</p>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon success">
-            <DollarSign size={28} />
+            <DollarSign size={20} />
           </div>
           <div className="stat-info">
-            <p className="stat-label">Total Revenue</p>
+            <p className="stat-label">Revenue</p>
             <p className="stat-value">${stats?.total_revenue?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}</p>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon info">
-            <TrendingUp size={28} />
+            <TrendingUp size={20} />
           </div>
           <div className="stat-info">
-            <p className="stat-label">Monthly Sales</p>
+            <p className="stat-label">Monthly</p>
             <p className="stat-value">${stats?.monthly_revenue?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}</p>
           </div>
         </div>
@@ -170,8 +151,8 @@ export const AdminDashboard: React.FC = () => {
 
       <div className="recent-orders card">
         <h2>Recent Orders</h2>
-        <div className="orders-table">
-          <table>
+        <div className="orders-table-wrap">
+          <table className="orders-table">
             <thead>
               <tr>
                 <th>Order #</th>
@@ -186,22 +167,22 @@ export const AdminDashboard: React.FC = () => {
             <tbody>
               {stats?.recent_orders?.map((order: any) => (
                 <tr key={order.id}>
-                  <td className="order-number" style={{ color: 'var(--accent-color)', fontWeight: 800 }}>{order.order_number}</td>
+                  <td className="cell-accent cell-bold">{order.order_number}</td>
                   <td>
-                    <div style={{ fontWeight: 700 }}>{order.customer_name}</div>
-                    <div className="email" style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>{order.customer_email}</div>
+                    <div className="cell-bold">{order.customer_name}</div>
+                    <div className="cell-sub">{order.customer_email}</div>
                   </td>
                   <td>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{order.material_name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{order.thickness_mm}mm • Qty: {order.quantity}</div>
+                    <div className="cell-medium">{order.material_name}</div>
+                    <div className="cell-sub">{order.thickness_mm}mm / Qty: {order.quantity}</div>
                   </td>
-                  <td className="amount" style={{ fontWeight: 800 }}>${order.total_amount.toFixed(2)}</td>
+                  <td className="cell-bold">${order.total_amount.toFixed(2)}</td>
                   <td>
                     <span className={`status-badge ${getStatusColor(order.status)}`}>
                       {order.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  <td className="cell-sub">
                     {new Date(order.created_at).toLocaleDateString()}
                   </td>
                   <td>
@@ -209,15 +190,6 @@ export const AdminDashboard: React.FC = () => {
                       value={order.status}
                       onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                       className="status-select"
-                      style={{
-                        padding: '0.4rem',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.85rem',
-                        fontWeight: 600
-                      }}
                     >
                       <option value="pending">Pending</option>
                       <option value="paid">Paid</option>

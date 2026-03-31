@@ -117,16 +117,16 @@ export const MaterialManager: React.FC = () => {
   return (
     <div className="material-manager animate-in">
       <div className="manager-header">
-        <h2><Layers size={24} /> Material Management</h2>
+        <h2><Layers size={20} /> Material Management</h2>
         {!showAddForm && (
           <button onClick={() => setShowAddForm(true)} className="add-btn">
-            <Plus size={20} /> Add Material
+            <Plus size={16} /> Add Material
           </button>
         )}
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleSubmit} className="material-form card">
+        <form onSubmit={handleSubmit} className="material-form card compact-card">
           <h3>{isEditing ? 'Edit Material' : 'Add New Material'}</h3>
           <div className="form-grid">
             <div className="form-group">
@@ -155,7 +155,7 @@ export const MaterialManager: React.FC = () => {
               </select>
             </div>
             <div className="form-group">
-              <label>Rate (per cm² per mm)</label>
+              <label>Rate (per cm2 per mm)</label>
               <input
                 type="number"
                 step="0.001"
@@ -180,22 +180,22 @@ export const MaterialManager: React.FC = () => {
                 value={formData.description}
                 onChange={e => setFormData({...formData, description: e.target.value})}
                 placeholder="Brief description of material usage..."
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
           <div className="form-actions">
             <button type="button" onClick={() => { setShowAddForm(false); setIsEditing(null); }} className="cancel-btn">
-              <X size={18} /> Cancel
+              <X size={15} /> Cancel
             </button>
             <button type="submit" className="save-btn">
-              <Check size={18} /> {isEditing ? 'Update' : 'Create'} Material
+              <Check size={15} /> {isEditing ? 'Update' : 'Create'}
             </button>
           </div>
         </form>
       )}
 
-      <div className="materials-list card">
+      <div className="materials-list card compact-card">
         <table className="orders-table">
           <thead>
             <tr>
@@ -210,9 +210,9 @@ export const MaterialManager: React.FC = () => {
             {materials.map(material => (
               <React.Fragment key={material.id}>
                 <tr>
-                  <td style={{ fontWeight: 700 }}>{material.name}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
-                  <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
+                  <td className="cell-bold">{material.name}</td>
+                  <td className="cell-capitalize">{material.type.replace('_', ' ')}</td>
+                  <td className="cell-accent cell-bold">${material.rate_per_cm2_mm.toFixed(3)}</td>
                   <td>
                     <div className="thickness-badges">
                       {material.available_thicknesses.map(t => (
@@ -223,18 +223,17 @@ export const MaterialManager: React.FC = () => {
                   <td>
                     <div className="actions">
                       <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
-                        <Edit2 size={16} />
+                        <Edit2 size={14} />
                       </button>
                       <button
                         onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)}
-                        className="edit-btn"
+                        className="edit-btn config-btn"
                         title="Manage Configs"
-                        style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
                       >
-                        <Settings size={16} />
+                        <Settings size={14} />
                       </button>
                       <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>
@@ -242,61 +241,52 @@ export const MaterialManager: React.FC = () => {
                 {expandedMaterial === material.id && (
                   <tr>
                     <td colSpan={5}>
-                      <div className="configs-manager" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                          <h4 style={{ margin: 0 }}>Granular Thickness Configs</h4>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Set custom rates and speeds per thickness</span>
+                      <div className="configs-manager">
+                        <div className="configs-header">
+                          <h4>Thickness Configs</h4>
+                          <span className="configs-hint">Custom rates and speeds per thickness</span>
                         </div>
-                        <table className="configs-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <table className="configs-table">
                           <thead>
-                            <tr style={{ textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-                              <th style={{ padding: '0.5rem' }}>Thickness</th>
-                              <th style={{ padding: '0.5rem' }}>Rate ($/cm²)</th>
-                              <th style={{ padding: '0.5rem' }}>Speed (mm/min)</th>
-                              <th style={{ padding: '0.5rem' }}>Stock Status</th>
-                              <th style={{ padding: '0.5rem' }}>Actions</th>
+                            <tr>
+                              <th>Thickness</th>
+                              <th>Rate ($/cm2)</th>
+                              <th>Speed (mm/min)</th>
+                              <th>Stock</th>
+                              <th>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
                             {material.configs.map(config => (
-                              <tr key={config.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                                <td style={{ padding: '0.5rem', fontWeight: 700 }}>{config.thickness_mm}mm</td>
-                                <td style={{ padding: '0.5rem' }}>
+                              <tr key={config.id}>
+                                <td className="cell-bold">{config.thickness_mm}mm</td>
+                                <td>
                                   <input
                                     type="number"
                                     step="0.001"
                                     value={config.rate_per_cm2}
                                     onChange={(e) => handleUpdateConfig(config.id, { rate_per_cm2: parseFloat(e.target.value) })}
-                                    style={{ width: '80px', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                    className="config-input"
                                   />
                                 </td>
-                                <td style={{ padding: '0.5rem' }}>
+                                <td>
                                   <input
                                     type="number"
                                     value={config.cut_speed_mm_min}
                                     onChange={(e) => handleUpdateConfig(config.id, { cut_speed_mm_min: parseFloat(e.target.value) })}
-                                    style={{ width: '80px', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                    className="config-input"
                                   />
                                 </td>
-                                <td style={{ padding: '0.5rem' }}>
+                                <td>
                                   <button
                                     onClick={() => handleUpdateConfig(config.id, { is_in_stock: !config.is_in_stock })}
-                                    style={{
-                                      padding: '0.25rem 0.5rem',
-                                      borderRadius: '4px',
-                                      border: 'none',
-                                      background: config.is_in_stock ? '#dcfce7' : '#fee2e2',
-                                      color: config.is_in_stock ? '#166534' : '#991b1b',
-                                      cursor: 'pointer',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700
-                                    }}
+                                    className={`stock-toggle ${config.is_in_stock ? 'in-stock' : 'out-of-stock'}`}
                                   >
-                                    {config.is_in_stock ? 'In Stock' : 'Out of Stock'}
+                                    {config.is_in_stock ? 'In Stock' : 'Out'}
                                   </button>
                                 </td>
-                                <td style={{ padding: '0.5rem' }}>
-                                  <button onClick={() => handleSaveConfig(config.id)} className="save-btn" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>
+                                <td>
+                                  <button onClick={() => handleSaveConfig(config.id)} className="save-btn compact-save">
                                     Save
                                   </button>
                                 </td>

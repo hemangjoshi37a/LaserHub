@@ -6,7 +6,9 @@ import { toast } from 'sonner';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLIC_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
+  : null;
 
 interface OrderFormProps {
   onSuccess: (order: any) => void;
@@ -80,7 +82,7 @@ const CheckoutForm: React.FC<{ order: any; onSuccess: () => void }> = ({ order, 
 };
 
 export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
-  const { costEstimate, resetState } = useAppStore();
+  const { costEstimate, resetState, selectedMaterial } = useAppStore();
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_email: '',
@@ -103,7 +105,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
       // Create order
       const order = await ordersApi.createOrder({
         file_id: costEstimate.file_id,
-        material_id: 1, // This should come from selected material
+        material_id: selectedMaterial?.id ?? 1,
         thickness_mm: costEstimate.thickness_mm,
         quantity: costEstimate.quantity,
         customer_email: formData.customer_email,
@@ -140,79 +142,68 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
           <p>Total: ${paymentIntent.amount.toFixed(2)}</p>
         </div>
 
-        <Elements stripe={stripePromise}>
-          <CheckoutForm order={paymentIntent} onSuccess={handlePaymentSuccess} />
-        </Elements>
+        {stripePromise ? (
+          <Elements stripe={stripePromise}>
+            <CheckoutForm order={paymentIntent} onSuccess={handlePaymentSuccess} />
+          </Elements>
+        ) : (
+          <div className="payment-unavailable">
+            <p>Payment processing is not configured. Please contact support.</p>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="order-form">
-      <h2>Customer Information</h2>
-      
+    <div className="order-form order-form-compact">
+      <h3>Customer Information</h3>
+
       <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>
-            <User size={18} />
-            Full Name
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.customer_name}
-            onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-            placeholder="John Doe"
-          />
+        <div className="form-row">
+          <div className="form-group form-group-compact">
+            <label><User size={14} /> Name</label>
+            <input
+              type="text"
+              required
+              value={formData.customer_name}
+              onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+              placeholder="John Doe"
+            />
+          </div>
+          <div className="form-group form-group-compact">
+            <label><Mail size={14} /> Email</label>
+            <input
+              type="email"
+              required
+              value={formData.customer_email}
+              onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+              placeholder="john@example.com"
+            />
+          </div>
         </div>
 
-        <div className="form-group">
-          <label>
-            <Mail size={18} />
-            Email Address
-          </label>
-          <input
-            type="email"
-            required
-            value={formData.customer_email}
-            onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-            placeholder="john@example.com"
-          />
-        </div>
-
-        <div className="form-group">
-          <label>
-            <MapPin size={18} />
-            Shipping Address
-          </label>
+        <div className="form-group form-group-compact">
+          <label><MapPin size={14} /> Shipping Address</label>
           <textarea
             required
             value={formData.shipping_address}
             onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })}
             placeholder="123 Main St, City, State 12345"
-            rows={3}
+            rows={2}
           />
         </div>
 
         {costEstimate && (
-          <div className="order-total">
-            <div className="total-row">
-              <span>Subtotal:</span>
-              <span>${costEstimate.breakdown.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="total-row">
-              <span>Tax:</span>
-              <span>${costEstimate.breakdown.tax.toFixed(2)}</span>
-            </div>
-            <div className="total-row grand-total">
-              <span>Total:</span>
-              <span>${costEstimate.breakdown.total.toFixed(2)}</span>
-            </div>
+          <div className="order-total order-total-compact">
+            <span>Subtotal: ${costEstimate.breakdown.subtotal.toFixed(2)}</span>
+            <span>Tax: ${costEstimate.breakdown.tax.toFixed(2)}</span>
+            <strong>Total: ${costEstimate.breakdown.total.toFixed(2)}</strong>
           </div>
         )}
 
-        <button type="submit" disabled={submitting} className="submit-btn">
-          <CreditCard size={18} />
+        <button type="submit" disabled={submitting} className="submit-btn submit-btn-compact">
+          <CreditCard size={16} />
           {submitting ? 'Processing...' : 'Proceed to Payment'}
         </button>
       </form>

@@ -116,7 +116,7 @@ async def seed_database():
                 name=material_data["name"],
                 type=material_data["type"],
                 rate_per_cm2_mm=material_data["rate_per_cm2_mm"],
-                available_thicknesses=json.dumps(material_data["thicknesses"]),
+                available_thicknesses_raw=json.dumps(material_data["thicknesses"]),
                 description=material_data["description"],
                 color_hex=material_data.get("color", "#0ea5e9"),
                 is_active=True,

@@ -25,6 +25,35 @@ from app.schemas import (
 router = APIRouter()
 
 
+def _material_to_response(material: Material) -> MaterialResponse:
+    """Convert Material ORM to response-compatible dict, parsing JSON thicknesses."""
+    thicknesses = []
+    if material.available_thicknesses_raw:
+        try:
+            thicknesses = json.loads(material.available_thicknesses_raw)
+        except (json.JSONDecodeError, TypeError):
+            thicknesses = []
+
+    return MaterialResponse(
+        id=material.id,
+        name=material.name,
+        type=material.type,
+        rate_per_cm2_mm=material.rate_per_cm2_mm,
+        available_thicknesses=thicknesses,
+        description=material.description,
+        color_hex=material.color_hex or "#0ea5e9",
+        is_active=material.is_active,
+        created_at=material.created_at,
+        configs=[MaterialConfigResponse(
+            id=c.id,
+            thickness_mm=c.thickness_mm,
+            rate_per_cm2=c.rate_per_cm2,
+            cut_speed_mm_min=c.cut_speed_mm_min,
+            is_in_stock=c.is_in_stock,
+        ) for c in (material.configs or [])],
+    )
+
+
 @router.get("/", response_model=List[MaterialResponse])
 async def list_materials(db: AsyncSession = Depends(get_db)):
     """List all active materials with their configs"""
@@ -34,10 +63,7 @@ async def list_materials(db: AsyncSession = Depends(get_db)):
         .options(selectinload(Material.configs))
     )
     materials = result.scalars().all()
-    
-    # We need to ensure available_thicknesses is parsed if it's a string
-    # But MaterialResponse expects a list, and Pydantic will handle from_attributes
-    return materials
+    return [_material_to_response(m) for m in materials]
 
 
 @router.get("/{material_id}", response_model=MaterialResponse)
@@ -51,7 +77,7 @@ async def get_material(material_id: int, db: AsyncSession = Depends(get_db)):
     material = result.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
-    return material
+    return _material_to_response(material)
 
 
 @router.post("/", response_model=MaterialResponse)
@@ -65,7 +91,7 @@ async def create_material(
         name=material_data.name,
         type=material_data.type.value,
         rate_per_cm2_mm=material_data.rate_per_cm2_mm,
-        available_thicknesses=json.dumps(material_data.available_thicknesses),
+        available_thicknesses_raw=json.dumps(material_data.available_thicknesses),
         description=material_data.description
     )
     db.add(new_material)
@@ -91,7 +117,7 @@ async def create_material(
         .where(Material.id == new_material.id)
         .options(selectinload(Material.configs))
     )
-    return result.scalar_one()
+    return _material_to_response(result.scalar_one())
 
 
 @router.put("/{material_id}", response_model=MaterialResponse)
@@ -114,7 +140,7 @@ async def update_material(
     if material_data.rate_per_cm2_mm is not None:
         material.rate_per_cm2_mm = material_data.rate_per_cm2_mm
     if material_data.available_thicknesses is not None:
-        material.available_thicknesses = json.dumps(material_data.available_thicknesses)
+        material.available_thicknesses_raw = json.dumps(material_data.available_thicknesses)
     if material_data.description is not None:
         material.description = material_data.description
     if material_data.is_active is not None:
@@ -128,7 +154,7 @@ async def update_material(
         .where(Material.id == material.id)
         .options(selectinload(Material.configs))
     )
-    return result.scalar_one()
+    return _material_to_response(result.scalar_one())
 
 
 @router.delete("/{material_id}")

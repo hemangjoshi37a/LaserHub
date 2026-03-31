@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, File, X, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../store';
 import { uploadApi } from '../services';
+import { API_URL } from '../services/api';
 import { toast } from 'sonner';
 
 const ALLOWED_TYPES = {
@@ -59,64 +60,54 @@ export const FileUpload: React.FC = () => {
 
   const isSvg = uploadedFile?.file_type === 'svg';
   const isDxf = uploadedFile?.file_type === 'dxf';
-  const previewUrl = uploadedFile ? `/api/upload/${uploadedFile.file_id}/raw` : null;
+  const previewUrl = uploadedFile ? `${API_URL}/upload/${uploadedFile.file_id}/raw` : null;
 
   return (
-    <div className="upload-container animate-in">
-      <h2>Upload Your Design</h2>
-      <p className="upload-description">
-        Support for DXF, SVG, AI, PDF, and EPS files
-      </p>
+    <div className="upload-container upload-compact animate-in">
+      <h3>Upload Your Design</h3>
+      <p className="upload-description">DXF, SVG, AI, PDF, and EPS supported</p>
 
       {!uploadedFile ? (
         <div
           {...getRootProps()}
-          className={`dropzone ${isDragActive ? 'active' : ''} ${uploading ? 'uploading' : ''}`}
+          className={`dropzone dropzone-compact ${isDragActive ? 'active' : ''} ${uploading ? 'uploading' : ''}`}
         >
           <input {...getInputProps()} />
-          <Upload size={48} className="upload-icon" />
           {uploading ? (
             <div className="uploading-state">
               <div className="spinner"></div>
-              <p>Uploading and analyzing...</p>
-            </div>
-          ) : isDragActive ? (
-            <div className="dropzone-content">
-              <Upload size={32} />
-              <p>Drop your file here...</p>
+              <p>Uploading...</p>
             </div>
           ) : (
             <div className="dropzone-content">
-              <Upload size={48} />
-              <p>Drag & drop your file here, or click to browse</p>
-              <p className="file-types">DXF • SVG • AI • PDF • EPS</p>
+              <Upload size={24} />
+              <p>{isDragActive ? 'Drop here...' : 'Drag & drop or click to browse'}</p>
             </div>
           )}
         </div>
       ) : (
-        <div className="uploaded-file-container animate-in">
-          {(isSvg || isDxf) && previewUrl && (
-            <div className="file-preview-canvas animate-in">
-              <img src={previewUrl} alt="Design Preview" />
-            </div>
-          )}
+        <div className="uploaded-file-container uploaded-file-compact animate-in">
           <div className="uploaded-file animate-in">
             <div className="file-info">
-              <File size={32} />
+              {(isSvg || isDxf) && previewUrl ? (
+                <img src={previewUrl} alt="Preview" className="file-thumb" />
+              ) : (
+                <File size={20} />
+              )}
               <div className="file-details">
-                <p className="filename">{uploadedFile.filename}</p>
-                <p className="file-size">
-                  {(uploadedFile.file_size / 1024).toFixed(1)} KB • {uploadedFile.file_type.toUpperCase()}
-                </p>
+                <span className="filename">{uploadedFile.filename}</span>
+                <span className="file-size">
+                  {(uploadedFile.file_size / 1024).toFixed(1)} KB &middot; {uploadedFile.file_type.toUpperCase()}
+                </span>
               </div>
-              <CheckCircle size={24} className="success-icon" />
+              <CheckCircle size={16} className="success-icon" />
             </div>
-            <button 
-              onClick={handleRemove} 
+            <button
+              onClick={handleRemove}
               className="remove-btn"
               aria-label="Remove file"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         </div>

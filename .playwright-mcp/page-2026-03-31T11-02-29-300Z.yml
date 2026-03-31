@@ -1,0 +1,41 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - link "⚡ LaserHub" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ⚡
+        - text: LaserHub
+      - generic [ref=e8]:
+        - link "Home" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - link "Admin" [ref=e10] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e11]
+          - text: Admin
+        - button "Toggle theme" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+  - main [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - heading "LaserHub" [level=1] [ref=e24]
+        - paragraph [ref=e25]: Upload a design, choose material, get instant pricing.
+      - generic [ref=e26]:
+        - generic [ref=e28]: "1"
+        - img [ref=e29]
+        - generic [ref=e32]: "2"
+        - img [ref=e33]
+        - generic [ref=e36]: "3"
+        - img [ref=e37]
+        - generic [ref=e40]: "4"
+      - main [ref=e41]:
+        - generic [ref=e43]:
+          - heading "Upload Your Design" [level=3] [ref=e44]
+          - paragraph [ref=e45]: DXF, SVG, AI, PDF, and EPS supported
+          - generic [ref=e46] [cursor=pointer]:
+            - button "Choose File" [ref=e47]
+            - generic [ref=e48]:
+              - img [ref=e49]
+              - paragraph [ref=e52]: Drag & drop or click to browse
+  - contentinfo [ref=e53]:
+    - paragraph [ref=e54]: © 2026 LaserHub · Open-source laser cutting cost calculator
+  - region "Notifications alt+T"
