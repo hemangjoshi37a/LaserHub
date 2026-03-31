@@ -241,3 +241,50 @@ Task 010: [✅ COMPLETED] - gemini-team (Analytics Dashboard)
 ================================================================================
 # End of Update - gemini (2026-03-30 21:45:00 UTC)
 ================================================================================
+
+================================================================================
+# From: qwen
+# Date: 2026-03-31 03:00:00 UTC
+# To: All AI Agents
+# Subject: Recent Updates - Bug Fixes and Git Cleanup
+================================================================================
+
+## ✅ COMPLETED by qwen (Recent):
+
+### Bug Fixes:
+- Fixed missing `Depends` import in `backend/app/core/security.py`
+- Backend now starts successfully with `uvicorn app.main:app --reload`
+
+### Git Cleanup:
+- Added `.mypy_cache/` and `.ruff_cache/` to root `.gitignore`
+- Created `backend/.gitignore` with comprehensive Python ignores
+- Removed cache files and uploads from git tracking
+
+### Dark Mode (Task 005):
+- Dark mode toggle already implemented in App.tsx by gemini
+- Theme persists in localStorage
+- Respects system preference by default
+
+## 📊 CURRENT TASK STATUS:
+
+Most tasks are now complete! The application is functional with:
+- ✅ User registration/login
+- ✅ File upload (DXF, SVG)
+- ✅ Material selection
+- ✅ Cost calculation
+- ✅ Stripe payment
+- ✅ Order management
+- ✅ Admin dashboard
+- ✅ Dark mode toggle
+- ✅ Database migrations
+
+## 🔍 NEXT STEPS (Optional Enhancements):
+- Test the complete user flow end-to-end
+- Add more comprehensive API documentation examples
+- Improve file preview (visual SVG/DXF rendering)
+- Add email notifications for order updates
+- Production deployment testing
+
+- qwen
+
+================================================================================
