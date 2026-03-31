@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { materialsApi, Material } from '../services';
 import { toast } from 'sonner';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  X, 
-  Check, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Check,
   Loader,
   Layers,
   Settings
@@ -131,18 +131,18 @@ export const MaterialManager: React.FC = () => {
           <div className="form-grid">
             <div className="form-group">
               <label>Name</label>
-              <input 
-                type="text" 
-                value={formData.name} 
-                onChange={e => setFormData({...formData, name: e.target.value})} 
+              <input
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
                 placeholder="e.g. Acrylic Clear"
-                required 
+                required
               />
             </div>
             <div className="form-group">
               <label>Type</label>
-              <select 
-                value={formData.type} 
+              <select
+                value={formData.type}
                 onChange={e => setFormData({...formData, type: e.target.value})}
               >
                 <option value="acrylic">Acrylic</option>
@@ -156,28 +156,28 @@ export const MaterialManager: React.FC = () => {
             </div>
             <div className="form-group">
               <label>Rate (per cm² per mm)</label>
-              <input 
-                type="number" 
-                step="0.001" 
-                value={formData.rate_per_cm2_mm} 
-                onChange={e => setFormData({...formData, rate_per_cm2_mm: parseFloat(e.target.value)})} 
-                required 
+              <input
+                type="number"
+                step="0.001"
+                value={formData.rate_per_cm2_mm}
+                onChange={e => setFormData({...formData, rate_per_cm2_mm: parseFloat(e.target.value)})}
+                required
               />
             </div>
             <div className="form-group">
               <label>Thicknesses (mm, comma separated)</label>
-              <input 
-                type="text" 
-                value={formData.available_thicknesses?.join(', ')} 
-                onChange={handleThicknessChange} 
+              <input
+                type="text"
+                value={formData.available_thicknesses?.join(', ')}
+                onChange={handleThicknessChange}
                 placeholder="e.g. 3, 5, 10"
-                required 
+                required
               />
             </div>
             <div className="form-group full-width">
               <label>Description</label>
-              <textarea 
-                value={formData.description} 
+              <textarea
+                value={formData.description}
                 onChange={e => setFormData({...formData, description: e.target.value})}
                 placeholder="Brief description of material usage..."
                 rows={3}
@@ -196,54 +196,53 @@ export const MaterialManager: React.FC = () => {
       )}
 
       <div className="materials-list card">
-        <div className="orders-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Rate</th>
-                <th>Thicknesses</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {materials.map(material => (
-                <React.Fragment key={material.id}>
+        <table className="orders-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Rate</th>
+              <th>Thicknesses</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map(material => (
+              <React.Fragment key={material.id}>
+                <tr>
+                  <td style={{ fontWeight: 700 }}>{material.name}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
+                  <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
+                  <td>
+                    <div className="thickness-badges">
+                      {material.available_thicknesses.map(t => (
+                        <span key={t} className="badge">{t}mm</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)}
+                        className="edit-btn"
+                        title="Manage Configs"
+                        style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
+                      >
+                        <Settings size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {expandedMaterial === material.id && (
                   <tr>
-                    <td style={{ fontWeight: 700 }}>{material.name}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{material.type.replace('_', ' ')}</td>
-                    <td style={{ color: 'var(--accent-color)', fontWeight: 700 }}>${material.rate_per_cm2_mm.toFixed(3)}</td>
-                    <td>
-                      <div className="thickness-badges">
-                        {material.available_thicknesses.map(t => (
-                          <span key={t} className="badge">{t}mm</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="actions">
-                        <button onClick={() => handleEdit(material)} className="edit-btn" title="Edit">
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)}
-                          className="edit-btn"
-                          title="Manage Configs"
-                          style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
-                        >
-                          <Settings size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(material.id)} className="delete-btn" title="Deactivate">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedMaterial === material.id && (
-                    <tr className="expanded-row">
-                      <td colSpan={5}>
-                        <div className="configs-manager card" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)' }}>
+                    <td colSpan={5}>
+                      <div className="configs-manager" style={{ margin: '1rem', padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                           <h4 style={{ margin: 0 }}>Granular Thickness Configs</h4>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Set custom rates and speeds per thickness</span>
@@ -263,8 +262,8 @@ export const MaterialManager: React.FC = () => {
                               <tr key={config.id} style={{ borderTop: '1px solid var(--border-color)' }}>
                                 <td style={{ padding: '0.5rem', fontWeight: 700 }}>{config.thickness_mm}mm</td>
                                 <td style={{ padding: '0.5rem' }}>
-                                  <input 
-                                    type="number" 
+                                  <input
+                                    type="number"
                                     step="0.001"
                                     value={config.rate_per_cm2}
                                     onChange={(e) => handleUpdateConfig(config.id, { rate_per_cm2: parseFloat(e.target.value) })}
@@ -272,19 +271,19 @@ export const MaterialManager: React.FC = () => {
                                   />
                                 </td>
                                 <td style={{ padding: '0.5rem' }}>
-                                  <input 
-                                    type="number" 
+                                  <input
+                                    type="number"
                                     value={config.cut_speed_mm_min}
                                     onChange={(e) => handleUpdateConfig(config.id, { cut_speed_mm_min: parseFloat(e.target.value) })}
                                     style={{ width: '80px', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                                   />
                                 </td>
                                 <td style={{ padding: '0.5rem' }}>
-                                  <button 
+                                  <button
                                     onClick={() => handleUpdateConfig(config.id, { is_in_stock: !config.is_in_stock })}
-                                    style={{ 
-                                      padding: '0.25rem 0.5rem', 
-                                      borderRadius: '4px', 
+                                    style={{
+                                      padding: '0.25rem 0.5rem',
+                                      borderRadius: '4px',
                                       border: 'none',
                                       background: config.is_in_stock ? '#dcfce7' : '#fee2e2',
                                       color: config.is_in_stock ? '#166534' : '#991b1b',
@@ -305,11 +304,11 @@ export const MaterialManager: React.FC = () => {
                             ))}
                           </tbody>
                         </table>
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </td>
+                  </tr>
                 )}
-                </React.Fragment>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
