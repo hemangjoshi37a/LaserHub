@@ -4,6 +4,7 @@ import { Package, UserPlus, AlertCircle } from 'lucide-react';
 import { ordersApi, type Order } from '../services';
 import { Skeleton } from '../components/Skeleton';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 export const TrackOrderPage: React.FC = () => {
   useDocumentTitle('Track Order — LaserHub');
@@ -66,7 +67,7 @@ export const TrackOrderPage: React.FC = () => {
               <dt style={{ color: 'var(--text-secondary)' }}>Quantity</dt>
               <dd>{order.quantity}</dd>
               <dt style={{ color: 'var(--text-secondary)' }}>Total</dt>
-              <dd><strong>${order.total_amount.toFixed(2)}</strong></dd>
+              <dd><strong>{formatPrice(order.total_amount)}</strong></dd>
               <dt style={{ color: 'var(--text-secondary)' }}>Customer</dt>
               <dd>{order.customer_name} · {order.customer_email}</dd>
               <dt style={{ color: 'var(--text-secondary)' }}>Ship to</dt>

@@ -94,15 +94,11 @@ api.interceptors.response.use(
 
       if (isAdminApi && hasUserToken) {
         // User token exists but admin API rejected it — don't clear login, just reject
-      } else if (!hasUserToken) {
-        // No token at all — clear everything
-        localStorage.removeItem('user_token');
-        localStorage.removeItem('user_data');
-        tokensCleared = true;
       } else {
-        // User token exists and a non-admin API 401'd — token is stale/invalid
+        // Clear all auth state
         localStorage.removeItem('user_token');
         localStorage.removeItem('user_data');
+        localStorage.removeItem('admin_token');
         tokensCleared = true;
       }
 

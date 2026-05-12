@@ -120,7 +120,7 @@ async def login(
         pass
 
     access_token = create_access_token(
-        data={"sub": user.email, "id": user.id, "role": "user"}
+        data={"sub": user.email, "id": user.id, "role": user.role}
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -169,13 +169,14 @@ async def google_login(
 
         # Create JWT token
         access_token = create_access_token(
-            data={"sub": user.email, "id": user.id, "role": "user"}
+            data={"sub": user.email, "id": user.id, "role": user.role}
         )
         return {"access_token": access_token, "token_type": "bearer", "user": {
             "id": user.id,
             "email": user.email,
             "name": user.name,
-            "is_admin": user.email == settings.ADMIN_EMAIL,
+            "role": user.role,
+            "is_admin": user.is_admin or user.role == "admin",
             "is_verified": user.is_verified,
             "created_at": str(user.created_at) if user.created_at else None,
         }}
@@ -183,7 +184,13 @@ async def google_login(
     except ValueError as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Google auth error: {str(e)}")
+        import logging
+        logging.getLogger(__name__).exception("auth.google_login_failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Authentication provider error. Please try again.",
+            headers={"X-Error-Code": "AUTH_PROVIDER_UNAVAILABLE"}
+        )
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
 async def verify_email(request: VerificationRequest, db: AsyncSession = Depends(get_db)):
@@ -274,6 +281,18 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+class RoleChecker:
+    def __init__(self, allowed_roles: List[str]):
+        self.allowed_roles = allowed_roles
+
+    def __call__(self, user: User = Depends(get_current_user)):
+        if user.role not in self.allowed_roles and not user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Operation not permitted for this role",
+            )
+        return user
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):

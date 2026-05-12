@@ -6,6 +6,7 @@ import { materialsApi, type Material } from '../services';
 import { toast } from 'sonner';
 import { Skeleton } from './Skeleton';
 import { MaterialWizardPage } from '../pages/MaterialWizardPage';
+import { formatPrice } from '../utils/formatPrice';
 
 const MATERIAL_ICONS: Record<string, any> = {
   acrylic: CircleDot,
@@ -197,7 +198,7 @@ export const MaterialSelector: React.FC = () => {
                 <Icon size={18} />
               </div>
               <h4>{material.name}</h4>
-              <span className="material-rate">${material.rate_per_cm2_mm.toFixed(3)}/cm²</span>
+              <span className="material-rate">{formatPrice(material.rate_per_cm2_mm)}/cm²</span>
             </button>
           );
         })}

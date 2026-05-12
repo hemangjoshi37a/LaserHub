@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { ReviewModal } from '../components/ReviewModal';
 import { EmptyState } from '../components/ui';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 type TabKey = 'profile' | 'orders' | 'designs' | 'settings';
 
@@ -298,7 +299,7 @@ export const ProfilePage: React.FC = () => {
                         <span className="review-submitted-badge">Reviewed</span>
                       )}
                       <div className="order-total">
-                        <span>${order.total_amount.toFixed(2)}</span>
+                        <span>{formatPrice(order.total_amount)}</span>
                         <ChevronRight size={20} />
                       </div>
                     </div>

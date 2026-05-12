@@ -252,14 +252,17 @@ async def upload_file(
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)
 
-    parse_warning: str | None = None
+    import json
+    validation_issues = []
     try:
-        analysis = parse_generic(str(file_path))
+        analysis = await asyncio.to_thread(parse_generic, str(file_path))
         width_mm = analysis.get("width_mm", 0) or 0
         height_mm = analysis.get("height_mm", 0) or 0
         area_cm2 = analysis.get("area_cm2", 0) or 0
         cut_length_mm = analysis.get("cut_length_mm", 0) or 0
         estimated_cut_time = cut_length_mm / settings.CUT_SPEED_MM_PER_MIN if cut_length_mm else 0
+        validation_issues = analysis.get("validation", [])
+        
         # Surface any parser-level notes as a warning
         if analysis.get("notes"):
             parse_warning = analysis["notes"]
@@ -294,6 +297,7 @@ async def upload_file(
         area_cm2=area_cm2,
         cut_length_mm=cut_length_mm,
         estimated_cut_time_minutes=estimated_cut_time,
+        validation_issues=json.dumps(validation_issues),
     )
     db.add(uploaded_file)
     await db.commit()
@@ -381,7 +385,7 @@ async def get_file_as_svg(
     if file_record.file_type == "dxf":
         try:
             from app.utils.file_converter import dxf_to_svg
-            svg_content = dxf_to_svg(str(file_path))
+            svg_content = await asyncio.to_thread(dxf_to_svg, str(file_path))
             return Response(content=svg_content, media_type="image/svg+xml", headers=svg_headers)
         except Exception as e:
             raise HTTPException(status_code=422, detail=f"DXF conversion failed: {str(e)}")
@@ -390,7 +394,7 @@ async def get_file_as_svg(
     if file_record.file_type in ("eps", "ai", "pdf"):
         try:
             from app.utils.file_converter import postscript_to_svg
-            svg_content = await asyncio.to_thread(postscript_to_svg, str(file_path))
+            svg_content = await postscript_to_svg(str(file_path))
             return Response(content=svg_content, media_type="image/svg+xml", headers=svg_headers)
         except Exception as e:
             raise HTTPException(status_code=422, detail=f"Conversion failed: {str(e)}")
@@ -422,6 +426,22 @@ async def get_file_analysis(
     cut_length = file_record.cut_length_mm or 0
     area = file_record.area_cm2 or 1
     
+    import json
+    issues = []
+    if file_record.validation_issues:
+        try:
+            issues = json.loads(file_record.validation_issues)
+        except Exception:
+            issues = []
+
+    validation_data = validate_laser_cuttable(str(file_record.file_path))
+    health_score = validation_data.get("health_score", 100.0)
+    health_status = "optimal"
+    if health_score < 50:
+        health_status = "critical"
+    elif health_score < 90:
+        health_status = "warning"
+
     return FileAnalysis(
         file_id=file_record.file_id,
         width_mm=file_record.width_mm or 0,
@@ -429,7 +449,10 @@ async def get_file_analysis(
         area_cm2=file_record.area_cm2 or 0,
         cut_length_mm=cut_length,
         estimated_cut_time_minutes=file_record.estimated_cut_time_minutes or 0,
-        complexity_score=cut_length / area,
+        complexity_score=cut_length / area if area > 0 else 0,
+        validation_issues=issues,
+        health_score=health_score,
+        health_status=health_status,
     )
 
 

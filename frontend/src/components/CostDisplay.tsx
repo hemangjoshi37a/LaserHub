@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calculator, Clock, Scissors, ShieldCheck, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2 } from 'lucide-react';
 import { useAppStore } from '../store';
-import { calculateApi, uploadApi } from '../services';
-import type { ValidationResult } from '../services';
+import { calculateApi, uploadApi, optimizationApi } from '../services';
+import type { ValidationResult, FileAnalysis } from '../services';
 import { api } from '../services/api';
 import { toast } from 'sonner';
 import { Skeleton } from './Skeleton';
@@ -21,6 +21,8 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
     setCostEstimate,
     setIsCalculating,
     isCalculating,
+    setUploadedFile,
+    setFileAnalysis,
   } = useAppStore();
 
   const { currency } = useCurrencyStore();
@@ -41,33 +43,37 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
     return () => { cancelled = true; };
   }, [uploadedFile?.file_id]);
 
-  const handleAutoFix = () => {
-    if (!validation) return;
-    const fixes = validation.issues.map((i) => {
-      switch (i.code) {
-        case 'open_path':
-        case 'open_polyline':
-          return '• Close open paths by joining endpoints.';
-        case 'has_fills':
-          return '• Remove fills — lasers only cut outlines.';
-        case 'text_not_path':
-          return '• Convert text to paths before export.';
-        case 'raster_image':
-          return '• Remove/vector-trace embedded images.';
-        case 'tiny_details':
-          return '• Enlarge features under 1 mm.';
-        case 'duplicate_entities':
-          return '• Remove duplicate entities (double cuts).';
-        case 'overlapping_paths':
-          return '• Merge or delete overlapping paths.';
-        default:
-          return `• ${i.message}`;
-      }
-    });
-    toast.info('Auto-fix preview', {
-      description: fixes.join('\n') || 'Nothing obvious to fix.',
-      duration: 10000,
-    });
+  const handleAutoFix = async () => {
+    if (!uploadedFile) return;
+    
+    setIsCalculating(true);
+    const toastId = toast.loading('Optimizing design...');
+    
+    try {
+      const optimized = await optimizationApi.optimizeFile(uploadedFile.file_id);
+      
+      // Update global store with the new "optimized" file version
+      setFileAnalysis(optimized);
+      setUploadedFile({
+        file_id: optimized.file_id,
+        filename: `optimized_${uploadedFile.filename}`,
+        file_size: uploadedFile.file_size, // Approximation
+        file_type: uploadedFile.file_type,
+        upload_url: `/api/upload/${optimized.file_id}`
+      });
+      
+      toast.success('Design Optimized!', {
+        id: toastId,
+        description: 'Duplicates removed and paths closed.',
+      });
+    } catch (error: any) {
+      toast.error('Optimization failed', {
+        id: toastId,
+        description: error.response?.data?.detail || 'Please try again',
+      });
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   const handleCalculate = async () => {
@@ -203,11 +209,13 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
                 </ul>
                 <button
                   onClick={handleAutoFix}
-                  className="thickness-btn"
-                  style={{ marginTop: '0.5rem', fontSize: '0.78rem' }}
+                  className="calculate-btn"
+                  style={{ marginTop: '0.5rem', fontSize: '0.78rem', padding: '0.4rem 0.8rem', background: 'var(--accent-color)', color: 'white', border: 'none' }}
                   type="button"
+                  disabled={isCalculating}
                 >
-                  <Wand2 size={12} /> Auto-fix (preview)
+                  <Wand2 size={12} style={{ marginRight: 4 }} /> 
+                  {isCalculating ? 'Processing...' : '✨ Auto-Optimize Design'}
                 </button>
               </div>
             )}

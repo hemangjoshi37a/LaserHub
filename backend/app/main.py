@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api import addresses, admin, auth, billing_addresses, calculate, crm, designs, inventory, invoices, marketplace, materials, notifications, orders, payment, quotes, super_admin, team, tracking, upload, vendor
+from app.api import addresses, admin, auth, billing_addresses, calculate, crm, designs, inventory, invoices, marketplace, materials, notifications, optimization, orders, payment, quotes, super_admin, team, tracking, upload, vendor
 from app.core.cache import cache
 from app.core.config import settings
 from app.core.database import async_session_maker, init_db
@@ -190,6 +190,7 @@ app.include_router(calculate.router, prefix="/api/calculate", tags=["Calculate"]
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payment.router, prefix="/api/payment", tags=["Payment"])
+app.include_router(optimization.router, prefix="/api/optimization", tags=["optimization"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(vendor.router, prefix="/api/vendors", tags=["Vendors"])

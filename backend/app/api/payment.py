@@ -72,7 +72,12 @@ async def create_payment_intent(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.exception("payment.create_intent_failed", order_id=payment_data.order_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Payment provider error. Please try again.",
+            headers={"X-Error-Code": "PAYMENT_PROVIDER_UNAVAILABLE"}
+        )
 
 
 @router.post("/razorpay/order")
@@ -128,7 +133,12 @@ async def create_razorpay_order(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.exception("payment.create_razorpay_order_failed", order_id=payment_data.order_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Payment provider error. Please try again.",
+            headers={"X-Error-Code": "PAYMENT_PROVIDER_UNAVAILABLE"}
+        )
 
 
 @router.post("/webhook")

@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { adminApi, FinancialsSummary } from '../services';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { StatCard, RevenueChart } from '../components';
 
 const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'];
 
@@ -123,31 +124,7 @@ export const FinancialsDashboard: React.FC = () => {
       <div className="adm-card" style={{ marginTop: '1rem' }}>
         <h3 className="adm-card-title"><TrendingUp size={16} /> Revenue — Last 30 Days</h3>
         <div className="adm-chart-container" style={{ height: 280 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.revenue_timeline}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
-                tickFormatter={(value) => value.split('-').slice(1).join('/')}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
-                tickFormatter={(v: number) => formatPrice(v, currency)}
-              />
-              <Tooltip
-                formatter={(value: number) => [formatPrice(value, currency), 'Revenue']}
-                contentStyle={{
-                  borderRadius: 8,
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-primary)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.8rem',
-                }}
-              />
-              <Line type="monotone" dataKey="revenue" stroke="var(--accent-color,#0ea5e9)" strokeWidth={2.5} />
-            </LineChart>
-          </ResponsiveContainer>
+          <RevenueChart data={data.revenue_timeline} />
         </div>
       </div>
 
@@ -295,30 +272,4 @@ export const FinancialsDashboard: React.FC = () => {
     </div>
   );
 };
-
-function StatCard({
-  label,
-  value,
-  sub,
-  tone = 'info',
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: 'info' | 'success' | 'warning' | 'error';
-}) {
-  return (
-    <div className="adm-stat-card">
-      <div className={`adm-stat-icon adm-stat-icon--${tone}`}>
-        <TrendingUp size={20} />
-      </div>
-      <div>
-        <p className="adm-stat-label">{label}</p>
-        <p className="adm-stat-value">{value}</p>
-        {sub && <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', margin: '0.25rem 0 0' }}>{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
 export default FinancialsDashboard;

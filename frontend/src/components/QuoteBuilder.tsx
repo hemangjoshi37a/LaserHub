@@ -178,6 +178,7 @@ const QuoteEditor: React.FC<{
   onClose: () => void;
   onSaved: () => void;
 }> = ({ initial, materials, onClose, onSaved }) => {
+  const { currency } = useCurrencyStore();
   const [customerName, setCustomerName] = useState(initial?.customer_name ?? '');
   const [customerEmail, setCustomerEmail] = useState(initial?.customer_email ?? '');
   const [items, setItems] = useState<QuoteLineItem[]>(initial?.items ?? [emptyItem()]);
@@ -312,7 +313,7 @@ const QuoteEditor: React.FC<{
               <input placeholder="mm" type="number" step="0.1" value={item.thickness ?? ''} onChange={(e) => updateItem(idx, { thickness: e.target.value ? Number(e.target.value) : undefined })} style={inputStyle} />
               <input placeholder="Qty" type="number" min={1} value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) || 0 })} style={inputStyle} />
               <input placeholder="Unit price" type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(idx, { unit_price: Number(e.target.value) || 0 })} style={inputStyle} />
-              <div style={{ textAlign: 'right', fontWeight: 600 }}>${item.subtotal.toFixed(2)}</div>
+              <div style={{ textAlign: 'right', fontWeight: 600 }}>{formatPrice(item.subtotal, currency)}</div>
               <button className="sa-btn sa-btn--ghost-sm" onClick={() => removeItem(idx)} aria-label="Remove"><Trash2 size={12} /></button>
             </div>
           ))}
@@ -340,11 +341,11 @@ const QuoteEditor: React.FC<{
         </label>
 
         <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--bg-secondary, #f5f5f5)', borderRadius: 6, fontSize: '0.875rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><strong>${subtotal.toFixed(2)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Setup fee</span><strong>${(Number(setupFee) || 0).toFixed(2)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax ({taxPct}%)</span><strong>${taxAmount.toFixed(2)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><strong>{formatPrice(subtotal, currency)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Setup fee</span><strong>{formatPrice((Number(setupFee) || 0), currency)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tax ({taxPct}%)</span><strong>{formatPrice(taxAmount, currency)}</strong></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', marginTop: '0.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem' }}>
-            <span>Total</span><strong>${total.toFixed(2)}</strong>
+            <span>Total</span><strong>{formatPrice(total, currency)}</strong>
           </div>
         </div>
 

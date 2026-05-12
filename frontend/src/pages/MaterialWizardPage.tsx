@@ -7,6 +7,7 @@ import { recommendMaterials, type WizardAnswers } from '../utils/materialWizard'
 import { toast } from 'sonner';
 import { useAppStore } from '../store';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -208,7 +209,7 @@ export const MaterialWizardPage: React.FC<Props> = ({ embedded, onClose, onPick 
                     {reasons.join(' · ')}
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
-                    ${material.rate_per_cm2_mm.toFixed(3)}/cm² · up to {material.max_thickness_mm ?? material.available_thicknesses.slice(-1)[0] ?? '?'} mm
+                    {formatPrice(material.rate_per_cm2_mm)}/cm² · up to {material.max_thickness_mm ?? material.available_thicknesses.slice(-1)[0] ?? '?'} mm
                   </div>
                 </div>
                 <button

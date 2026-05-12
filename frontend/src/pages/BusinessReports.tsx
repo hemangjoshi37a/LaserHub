@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BarChart2, DollarSign } from 'lucide-react';
 import { Analytics } from './Analytics';
 import { FinancialsDashboard } from './FinancialsDashboard';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type Tab = 'analytics' | 'financials';
 
@@ -12,6 +13,7 @@ type Tab = 'analytics' | 'financials';
  * vendors have one "Reports" entry instead of two sibling pages.
  */
 export const BusinessReports: React.FC = () => {
+  useDocumentTitle('Business Reports - LaserHub');
   const [tab, setTab] = useState<Tab>('analytics');
 
   return (

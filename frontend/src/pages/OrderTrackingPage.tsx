@@ -5,6 +5,7 @@ import { trackingApi, type OrderTimeline } from '../services/tracking';
 import { useAuthStore } from '../store/authStore';
 import OrderTimeline_ from '../components/OrderTimeline';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -118,7 +119,7 @@ export const OrderTrackingPage: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Total</div>
-              <div style={{ fontWeight: 600 }}>${data.total_amount.toFixed(2)}</div>
+              <div style={{ fontWeight: 600 }}>{formatPrice(data.total_amount)}</div>
             </div>
           </div>
 

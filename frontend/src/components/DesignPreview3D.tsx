@@ -276,7 +276,7 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
   thicknessMm: thicknessProp,
   colorHex: colorProp,
 }) => {
-  const { uploadedFile, selectedMaterial, selectedThickness } = useAppStore();
+  const { uploadedFile, fileAnalysis, selectedMaterial, selectedThickness } = useAppStore();
   const [use3D, setUse3D] = useState(true);
   const [error, setError] = useState(false);
 
@@ -300,9 +300,28 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
   // Always use the /svg endpoint for preview — it serves with Content-Disposition: inline
   const fallbackUrl = previewUrl;
 
+  const healthColor = fileAnalysis?.health_status === 'optimal' ? '#10b981' : fileAnalysis?.health_status === 'warning' ? '#f59e0b' : '#ef4444';
+
   const header = (
-    <div className="preview-header">
-      <span>{use3D && !error ? '3D Preview' : 'Design Preview'}</span>
+    <div className="preview-header" style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <span>{use3D && !error ? '3D Preview' : 'Design Preview'}</span>
+        {fileAnalysis && (
+          <div style={{ 
+            fontSize: '0.65rem', 
+            background: `${healthColor}20`, 
+            color: healthColor, 
+            padding: '2px 8px', 
+            borderRadius: 4, 
+            border: `1px solid ${healthColor}`,
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            letterSpacing: '0.02em'
+          }}>
+            Health: {fileAnalysis.health_status}
+          </div>
+        )}
+      </div>
       <div className="preview-controls">
         <button
           className={`preview-toggle ${use3D ? 'active' : ''}`}
@@ -359,6 +378,17 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
         </CanvasErrorBoundary>
       </div>
       <p className="preview-hint">Drag to rotate · Scroll to zoom · Right-click to pan</p>
+      
+      {fileAnalysis?.validation_issues && fileAnalysis.validation_issues.length > 0 && (
+        <div className="preview-validation">
+          {fileAnalysis.validation_issues.map((issue, idx) => (
+            <div key={idx} className={`validation-item validation-${issue.severity}`}>
+              <span className="validation-msg">{issue.message}</span>
+              {issue.count > 1 && <span className="validation-count">×{issue.count}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

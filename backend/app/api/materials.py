@@ -75,7 +75,7 @@ async def list_materials(db: AsyncSession = Depends(get_db)):
     """List all active materials with their configs"""
     result = await db.execute(
         select(Material)
-        .where(Material.is_active == True)
+        .where(Material.is_active == True, Material.is_internal == False, Material.is_demo == False)
         .options(selectinload(Material.configs))
     )
     materials = result.scalars().all()

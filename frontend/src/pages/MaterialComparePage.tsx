@@ -5,6 +5,7 @@ import { materialsApi } from '../services';
 import type { Material } from '../services';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 function strengthLabel(rating: number = 3): string {
   return '★'.repeat(rating) + '☆'.repeat(Math.max(0, 5 - rating));
@@ -91,7 +92,7 @@ export const MaterialComparePage: React.FC = () => {
               />
               <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{m.name}</h4>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                ${m.rate_per_cm2_mm.toFixed(3)}/cm² · <Star size={10} style={{ verticalAlign: 'middle' }} /> {strengthLabel(m.strength_rating)}
+                {formatPrice(m.rate_per_cm2_mm)}/cm² · <Star size={10} style={{ verticalAlign: 'middle' }} /> {strengthLabel(m.strength_rating)}
               </div>
             </div>
           );
@@ -112,7 +113,7 @@ export const MaterialComparePage: React.FC = () => {
             <tbody>
               <tr>
                 <td><strong>Cost / cm²</strong></td>
-                {comparisonList.map((m) => <td key={m.id}>${m.rate_per_cm2_mm.toFixed(3)}</td>)}
+                {comparisonList.map((m) => <td key={m.id}>{formatPrice(m.rate_per_cm2_mm)}</td>)}
               </tr>
               <tr>
                 <td><strong>Max thickness</strong></td>

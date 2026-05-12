@@ -40,6 +40,8 @@ class User(Base):
     crm_tags = Column(String, default="[]")
     addresses = Column(Text, default="[]")  # JSON list of saved addresses
     notification_prefs = Column(Text, nullable=True)  # JSON: {"email": bool, "push": bool, "sms": bool}
+    is_internal = Column(Boolean, default=False, server_default="0")
+    is_demo = Column(Boolean, default=False, server_default="0")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     orders = relationship("Order", back_populates="user")
@@ -66,6 +68,9 @@ class Material(Base):
     finish_options = Column(String, default="")  # comma-separated "matte, glossy"
     best_use_cases = Column(Text, default="[]")  # JSON list of strings
     max_thickness_mm = Column(Float, nullable=True)
+    base_currency = Column(String(3), nullable=False, default="USD", server_default="USD")
+    is_internal = Column(Boolean, default=False, server_default="0")
+    is_demo = Column(Boolean, default=False, server_default="0")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     orders = relationship("Order", back_populates="material")
@@ -95,6 +100,7 @@ class MaterialConfig(Base):
     rate_per_cm2 = Column(Float, nullable=False)  # Custom rate for this thickness
     cut_speed_mm_min = Column(Float, nullable=False)  # Speed for this thickness
     is_in_stock = Column(Boolean, default=True)
+    base_currency = Column(String(3), nullable=False, default="USD", server_default="USD")
     
     material = relationship("Material", back_populates="configs")
 
@@ -114,6 +120,7 @@ class UploadedFile(Base):
     area_cm2 = Column(Float)
     cut_length_mm = Column(Float)
     estimated_cut_time_minutes = Column(Float)
+    validation_issues = Column(Text, default="[]")  # JSON list of issues
     created_at = Column(DateTime, default=datetime.utcnow)
 
     orders = relationship("Order", back_populates="uploaded_file")
@@ -157,6 +164,9 @@ class Order(Base):
     guest_tracking_token = Column(String, nullable=True, index=True)
     courier = Column(String, nullable=True)
     estimated_delivery_date = Column(DateTime, nullable=True)
+
+    is_internal = Column(Boolean, default=False, server_default="0")
+    is_demo = Column(Boolean, default=False, server_default="0")
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -229,6 +239,8 @@ class Vendor(Base):
     min_order_amount = Column(Float, default=0.0)
     shipping_policy = Column(Text)
     specialties = Column(String, default="[]")  # JSON array of specialty tags
+    is_internal = Column(Boolean, default=False, server_default="0")
+    is_demo = Column(Boolean, default=False, server_default="0")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Contact / verification (platform-entered)
@@ -329,6 +341,7 @@ class DesignListing(Base):
     description = Column(Text)
     is_active = Column(Boolean, default=True)
     sold_count = Column(Integer, default=0)
+    base_currency = Column(String(3), nullable=False, default="USD", server_default="USD")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     vendor = relationship("Vendor", back_populates="design_listings")

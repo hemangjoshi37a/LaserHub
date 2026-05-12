@@ -9,4 +9,5 @@ export { PageHeader } from './PageHeader';
 export { Avatar } from './Avatar';
 export { Stat } from './Stat';
 export { Tabs } from './Tabs';
+export { ConfirmDialog } from './ConfirmDialog';
 export type { TabItem } from './Tabs';

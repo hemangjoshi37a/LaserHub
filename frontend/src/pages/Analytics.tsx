@@ -23,6 +23,7 @@ import { adminApi, AnalyticsData } from '../services';
 import { toast } from 'sonner';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { StatCard, RevenueChart } from '../components';
 
 const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'];
 
@@ -120,68 +121,31 @@ export const Analytics: React.FC = () => {
       </div>
 
       <div className="adm-stats-grid">
-        <div className="adm-stat-card">
-          <div className="adm-stat-icon adm-stat-icon--info"><TrendingUp size={20} /></div>
-          <div>
-            <p className="adm-stat-label">Total Revenue</p>
-            <p className="adm-stat-value">{formatPrice(data?.total_revenue || 0, currency)}</p>
-          </div>
-        </div>
-        <div className="adm-stat-card">
-          <div className="adm-stat-icon adm-stat-icon--success"><Package size={20} /></div>
-          <div>
-            <p className="adm-stat-label">Total Orders</p>
-            <p className="adm-stat-value">{data?.total_orders || 0}</p>
-          </div>
-        </div>
-        <div className="adm-stat-card">
-          <div className="adm-stat-icon adm-stat-icon--warning"><TrendingUp size={20} /></div>
-          <div>
-            <p className="adm-stat-label">Avg. Order Value</p>
-            <p className="adm-stat-value">{formatPrice(data?.average_order_value || 0, currency)}</p>
-          </div>
-        </div>
+        <StatCard
+          label="Total Revenue"
+          value={formatPrice(data?.total_revenue || 0, currency)}
+          icon={<TrendingUp size={20} />}
+          tone="info"
+        />
+        <StatCard
+          label="Total Orders"
+          value={(data?.total_orders || 0).toString()}
+          icon={<Package size={20} />}
+          tone="success"
+        />
+        <StatCard
+          label="Avg. Order Value"
+          value={formatPrice(data?.average_order_value || 0, currency)}
+          icon={<TrendingUp size={20} />}
+          tone="warning"
+        />
       </div>
 
       <div className="adm-charts-grid">
         <div className="adm-card">
           <h3 className="adm-card-title">Revenue over Time</h3>
           <div className="adm-chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={filteredSales}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
-                  tickFormatter={(value) => value.split('-').slice(1).join('/')}
-                  axisLine={{ stroke: 'var(--border-color)' }}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }}
-                  axisLine={{ stroke: 'var(--border-color)' }}
-                  tickFormatter={(v: number) => formatPrice(v, currency)}
-                />
-                <Tooltip
-                  formatter={(value: number) => [formatPrice(value, currency), 'Revenue']}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
-                    boxShadow: 'var(--card-shadow)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.8rem',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="var(--accent-color)"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: 'var(--accent-color)', strokeWidth: 2, stroke: 'var(--bg-primary)' }}
-                  activeDot={{ r: 5, strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <RevenueChart data={filteredSales} />
           </div>
         </div>
 

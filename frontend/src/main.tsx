@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App.tsx'
-import ErrorFallback from './components/ErrorFallback'
+import { ErrorFallback } from './components/ErrorFallback'
 import './index.css'
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;

@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 import ezdxf
 from ezdxf import bbox
+from app.utils.geometry_engine import GeometryEngine
 
 logger = logging.getLogger(__name__)
 
@@ -683,31 +684,44 @@ def parse_ai(file_path: str) -> Dict[str, Any]:
     if info["width_mm"] == 0.0:
         info["notes"] = "Could not parse AI file. Save as PDF-compatible AI or SVG for best results."
     return info
-
 def validate_geometry(msp) -> Dict[str, Any]:
     """
-    Validate if geometry is suitable for laser cutting.
-    Checks if paths are closed by comparing start and end points of entities.
+    Validate if geometry is suitable for laser cutting using GeometryEngine.
     """
-    warnings = []
-
-    # Simple check for closed paths:
-    # Collect all start and end points
-    points = []
+    segments = []
     for entity in msp:
         if entity.dxftype() == 'LINE':
-            points.append((entity.dxf.start, entity.dxf.end))
+            segments.append((entity.dxf.start[:2], entity.dxf.end[:2]))
         elif entity.dxftype() in ('POLYLINE', 'LWPOLYLINE'):
-            if not entity.is_closed:
-                warnings.append(f"Unclosed polyline detected on layer {entity.dxf.layer}")
-        elif entity.dxftype() == 'CIRCLE':
-            pass # Circles are always closed
+            # LWPolyline segments
+            for sub in entity.virtual_entities():
+                if sub.dxftype() == 'LINE':
+                    segments.append((sub.dxf.start[:2], sub.dxf.end[:2]))
 
-    # In a real tool, we'd use a graph-based approach to find open loops
-    if not warnings:
-        return {"is_valid": True, "warnings": []}
-    else:
-        return {"is_valid": False, "warnings": warnings}
+    open_paths = GeometryEngine.find_open_paths(segments)
+    duplicates = GeometryEngine.detect_duplicates(segments)
+    
+    warnings = []
+    for op in open_paths:
+        warnings.append({
+            "code": "OPEN_PATH",
+            "message": f"Unclosed loop near {op['location']}",
+            "severity": "warning"
+        })
+    
+    if duplicates:
+        warnings.append({
+            "code": "DUPLICATE_LINES",
+            "message": f"Detected {len(duplicates)} duplicate lines (double cutting risk)",
+            "severity": "info"
+        })
+
+    return {
+        "is_valid": len(open_paths) == 0,
+        "warnings": warnings,
+        "health_score": max(0, 100 - (len(open_paths) * 10) - (len(duplicates) * 2))
+    }
+
 
 def _parse_hpgl(file_path: str) -> Dict[str, Any]:
     """Parse HPGL/PLT files - simple pen plotter format"""

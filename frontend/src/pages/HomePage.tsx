@@ -5,7 +5,9 @@ import { FileUpload } from '../components/FileUpload';
 import { MaterialSelector } from '../components/MaterialSelector';
 import { CostDisplay } from '../components/CostDisplay';
 import { OrderForm } from '../components/OrderForm';
-import { DesignPreview3D } from '../components/DesignPreview3D';
+const DesignPreview3D = React.lazy(() =>
+  import('../components/DesignPreview3D').then((m) => ({ default: m.DesignPreview3D }))
+);
 import { KerfPreview } from '../components/KerfPreview';
 import { useAppStore } from '../store';
 import { useAuthStore } from '../store/authStore';
@@ -540,7 +542,9 @@ const Step3Review: React.FC<{
     <div className="upl-step-content animate-in">
       <div className="upl-review-grid">
         <div className="upl-review-preview">
-          <DesignPreview3D />
+          <React.Suspense fallback={<div className="preview-panel preview-empty">Loading 3D Engine…</div>}>
+            <DesignPreview3D />
+          </React.Suspense>
           <KerfPreview />
         </div>
         <div className="upl-review-cost">

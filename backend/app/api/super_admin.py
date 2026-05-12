@@ -589,6 +589,11 @@ async def list_orders(
     """List all orders with customer and vendor info for super admin."""
     query = (
         select(Order)
+        .options(
+            selectinload(Order.material),
+            selectinload(Order.uploaded_file),
+            selectinload(Order.vendor_order).selectinload(VendorOrder.vendor)
+        )
         .order_by(desc(Order.created_at))
     )
     if status_filter:
@@ -599,28 +604,15 @@ async def list_orders(
 
     out: List[SAOrderOut] = []
     for order in orders:
-        # Resolve material name
-        mat_result = await db.execute(
-            select(Material).where(Material.id == order.material_id)
-        )
-        material = mat_result.scalar_one_or_none()
+        material = order.material
+        uploaded_file = order.uploaded_file
 
-        # Resolve file UUID
-        file_result = await db.execute(
-            select(UploadedFile).where(UploadedFile.id == order.file_id)
-        )
-        uploaded_file = file_result.scalar_one_or_none()
-
-        # Resolve vendor name via VendorOrder join
         vendor_name: Optional[str] = None
-        vo_result = await db.execute(
-            select(VendorOrder, Vendor)
-            .join(Vendor, VendorOrder.vendor_id == Vendor.id)
-            .where(VendorOrder.order_id == order.id)
-        )
-        vo_row = vo_result.first()
-        if vo_row:
-            vendor_name = vo_row[1].shop_name
+        if order.vendor_order:
+            # SQLAlchemy backref makes vendor_order a list
+            vo = order.vendor_order[0] if isinstance(order.vendor_order, list) else order.vendor_order
+            if vo and vo.vendor:
+                vendor_name = vo.vendor.shop_name
 
         out.append(SAOrderOut(
             id=order.id,

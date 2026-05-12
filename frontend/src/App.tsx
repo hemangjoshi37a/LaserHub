@@ -5,8 +5,9 @@ import { ErrorBoundary } from 'react-error-boundary';
 import type { FallbackProps } from 'react-error-boundary';
 import { ErrorFallback } from './components/ErrorFallback';
 import { HomePage } from './pages/HomePage';
-import { AdminPage } from './pages/AdminPage';
 import { VendorDashboardPage } from './pages/VendorDashboardPage';
+import { UserDashboardPage } from './pages/UserDashboardPage';
+import { SuperAdminPage } from './pages/SuperAdminPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { BrowseDesignsPage } from './pages/BrowseDesignsPage';
 import { VendorsPage } from './pages/VendorsPage';
@@ -29,176 +30,13 @@ import { SamplePackPage } from './pages/SamplePackPage';
 import { useAuthStore } from './store/authStore';
 import { isSuperAdmin, isVendor } from './utils/roles';
 import { useCurrencyStore } from './store/currencyStore';
-import { CurrencySwitcher } from './components/CurrencySwitcher';
-import { NotificationPrompt } from './components/NotificationPrompt';
+import { Navbar, NotificationPrompt } from './components';
 import { useEscapeKey } from './hooks/useEscapeKey';
 import { Toaster } from 'sonner';
-import { Sun, Moon, Upload, Search, Store, Menu, X, LogIn, User, LogOut, Github, LayoutDashboard, Package, Users, Image as ImageIcon, BarChart2, Shield } from 'lucide-react';
+import { Github } from 'lucide-react';
 import './App.css';
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function NavAvatar({ onNavigate }: { onNavigate?: () => void }) {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEscapeKey(() => setOpen(false), open);
-
-  const handleLogout = () => {
-    logout();
-    setOpen(false);
-    onNavigate?.();
-    navigate('/');
-  };
-
-  if (!user) {
-    return (
-      <Link to="/login" className="nav-link nav-login-btn" onClick={onNavigate}>
-        <LogIn size={16} />
-        Login
-      </Link>
-    );
-  }
-
-  const isVendorOrAdmin = isVendor(user) || !!user?.is_admin;
-  const userIsSuperAdmin = isSuperAdmin(user);
-
-  const closeMenu = () => { setOpen(false); onNavigate?.(); };
-
-  return (
-    <div className="nav-avatar-wrapper" ref={ref}>
-      <button
-        className="nav-avatar-btn"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-label="User menu"
-        aria-expanded={open}
-      >
-        <span className="nav-avatar-initials">{getInitials(user.name)}</span>
-      </button>
-      {open && (
-        <div className="nav-dropdown">
-          <div className="nav-dropdown-header">
-            <span className="nav-dropdown-name">{user.name}</span>
-            <span className="nav-dropdown-email">{user.email}</span>
-          </div>
-          <div className="nav-dropdown-divider" />
-          <Link to="/admin/profile" className="nav-dropdown-item" onClick={closeMenu}>
-            <User size={15} />
-            Profile
-          </Link>
-          <Link to="/admin/my-orders" className="nav-dropdown-item" onClick={closeMenu}>
-            <User size={15} />
-            My Orders
-          </Link>
-          {isVendorOrAdmin && (
-            <>
-              <div className="nav-dropdown-divider" />
-              <div className="nav-dropdown-heading">Vendor</div>
-              <Link to="/admin/dashboard" className="nav-dropdown-item" onClick={closeMenu}>
-                <LayoutDashboard size={15} />
-                Vendor Dashboard
-              </Link>
-              <Link to="/admin/materials" className="nav-dropdown-item" onClick={closeMenu}>
-                <Package size={15} />
-                Materials
-              </Link>
-            </>
-          )}
-          {userIsSuperAdmin && (
-            <>
-              <div className="nav-dropdown-divider" />
-              <div className="nav-dropdown-heading">
-                <Shield size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                Super Admin
-              </div>
-              <Link to="/admin/sa-users" className="nav-dropdown-item" onClick={closeMenu}>
-                <Users size={15} />
-                Users
-              </Link>
-              <Link to="/admin/sa-vendors" className="nav-dropdown-item" onClick={closeMenu}>
-                <Store size={15} />
-                Vendors
-              </Link>
-              <Link to="/admin/sa-designs" className="nav-dropdown-item" onClick={closeMenu}>
-                <ImageIcon size={15} />
-                Designs
-              </Link>
-              <Link to="/admin/sa-stats" className="nav-dropdown-item" onClick={closeMenu}>
-                <BarChart2 size={15} />
-                Platform Stats
-              </Link>
-            </>
-          )}
-          <div className="nav-dropdown-divider" />
-          <button className="nav-dropdown-item nav-dropdown-logout" onClick={handleLogout}>
-            <LogOut size={15} />
-            Logout
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavLinks({ isDarkMode, toggleDarkMode, onNavigate }: {
-  isDarkMode: boolean;
-  toggleDarkMode: () => void;
-  onNavigate?: () => void;
-}) {
-  return (
-    <>
-      <Link to="/browse" className="nav-link" onClick={onNavigate}>
-        <Search size={16} />
-        Browse
-      </Link>
-      <Link to="/upload" className="nav-link" onClick={onNavigate}>
-        <Upload size={16} />
-        Upload
-      </Link>
-      <Link to="/vendors" className="nav-link" onClick={onNavigate}>
-        <Store size={16} />
-        Vendors
-      </Link>
-      <CurrencySwitcher />
-      <NavAvatar onNavigate={onNavigate} />
-      <button
-        onClick={toggleDarkMode}
-        className="theme-toggle"
-        aria-label="Toggle theme"
-      >
-        {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
-    </>
-  );
-}
-
 function AppContent() {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  });
-  const [navOpen, setNavOpen] = useState(false);
-  const location = useLocation();
   const { checkAuth } = useAuthStore();
   const { detect: detectCurrency } = useCurrencyStore();
 
@@ -208,45 +46,10 @@ function AppContent() {
     detectCurrency();
   }, [checkAuth, detectCurrency]);
 
-  // Close nav on route change
-  useEffect(() => {
-    setNavOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark-mode');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
-
-  const toggleDarkMode = useCallback(() => setIsDarkMode(prev => !prev), []);
-  const closeNav = useCallback(() => setNavOpen(false), []);
-
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to main content</a>
-      <nav className="navbar">
-        <div className="nav-container">
-          <Link to="/" className="nav-brand">
-            <span className="logo">⚡</span>
-            LaserHub
-          </Link>
-          <button
-            className="nav-toggle"
-            onClick={() => setNavOpen(!navOpen)}
-            aria-label="Toggle navigation"
-          >
-            {navOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <div className={`nav-links${navOpen ? ' nav-open' : ''}`}>
-            <NavLinks isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} onNavigate={closeNav} />
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <NotificationPrompt />
 
@@ -265,9 +68,8 @@ function AppContent() {
             <Route path="/design/:id" element={<DesignDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/profile" element={<Navigate to="/admin" replace />} />
-            <Route path="/admin/*" element={<AdminPage />} />
-            <Route path="/super-admin/*" element={<Navigate to="/admin/sa-users" replace />} />
+            <Route path="/dashboard/*" element={<UserDashboardPage />} />
+            <Route path="/admin/*" element={<SuperAdminPage />} />
             <Route path="/vendor/dashboard/*" element={<VendorDashboardPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />

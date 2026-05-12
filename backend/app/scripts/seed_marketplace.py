@@ -238,6 +238,7 @@ async def seed_marketplace():
                     hashed_password=get_password_hash(DEMO_VENDOR_PASSWORD),
                     is_verified=True,
                     role="vendor",
+                    is_demo=True,
                 )
                 session.add(user)
                 await session.flush()
@@ -263,6 +264,7 @@ async def seed_marketplace():
                 avg_turnaround_days=vd["avg_turnaround_days"],
                 is_verified=vd.get("is_verified", False),
                 is_active=True,
+                is_demo=True,
                 created_at=created_at,
             )
             session.add(vendor)

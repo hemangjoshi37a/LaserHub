@@ -125,6 +125,7 @@ async def seed_database():
                 description=material_data["description"],
                 color_hex=material_data.get("color", "#0ea5e9"),
                 is_active=True,
+                is_demo=True,
             )
 
             session.add(material)

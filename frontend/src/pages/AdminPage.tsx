@@ -51,6 +51,7 @@ import { authApi, designApi, ordersApi, addressesApi, savedQuotesStore, Order, D
 import { resolveMediaUrl } from '../services/api';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 // Super admin tab components (imported from SuperAdminPage module)
 // We re-export those sub-tab functions so they're available here.
@@ -327,7 +328,7 @@ function MyOrdersTabContent() {
                       <div className="adm-cell-medium">{order.material_name}</div>
                       <div className="adm-cell-sub">{order.thickness_mm}mm / Qty: {order.quantity}</div>
                     </td>
-                    <td className="adm-cell-bold">${order.total_amount.toFixed(2)}</td>
+                    <td className="adm-cell-bold">{formatPrice(order.total_amount)}</td>
                     <td>
                       <span className={`adm-status-badge adm-status-badge--${
                         order.status === 'completed' ? 'success' :
@@ -399,7 +400,7 @@ function MyOrdersTabContent() {
                   <tr key={q.id} className="adm-row">
                     <td className="adm-cell-medium">{q.vendor_name || q.vendor_slug || '—'}</td>
                     <td>{q.material} · {q.thickness}mm</td>
-                    <td className="adm-cell-bold">${q.price.toFixed(2)}</td>
+                    <td className="adm-cell-bold">{formatPrice(q.price)}</td>
                     <td>{q.qty}</td>
                     <td className="adm-cell-sub">{new Date(q.saved_at).toLocaleDateString()}</td>
                     <td>

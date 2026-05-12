@@ -64,8 +64,7 @@ async def get_current_vendor(
     db: AsyncSession = Depends(get_db)
 ) -> Vendor:
     """Get current vendor from JWT token.
-
-    Uses decode_access_token which enforces exp, iat, and iss="laserhub-api".
+    Ensures user has 'vendor' role and a valid vendor profile.
     """
     payload = decode_access_token(token)
     email = payload.get("sub")
@@ -77,10 +76,15 @@ async def get_current_vendor(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
+    if user.role != "vendor" and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Vendor role required")
+
     result = await db.execute(select(Vendor).where(Vendor.user_id == user.id))
     vendor = result.scalar_one_or_none()
     if not vendor:
-        raise HTTPException(status_code=403, detail="Not a vendor account")
+        # Auto-create vendor profile if user is marked as vendor but profile missing? 
+        # No, they should go through registration.
+        raise HTTPException(status_code=403, detail="Vendor profile not initialized")
 
     return vendor
 
@@ -580,6 +584,67 @@ async def get_vendor_stats(
         "rating": vendor.rating,
         "total_reviews": vendor.total_reviews,
     }
+
+
+@router.get("/dashboard/analytics")
+async def get_vendor_analytics(
+    vendor: Vendor = Depends(get_current_vendor),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed analytics for vendor dashboard (revenue timeline, materials)"""
+    from datetime import datetime, timedelta
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    # 1. Revenue Timeline
+    revenue_query = (
+        select(
+            func.strftime("%Y-%m-%d", VendorOrder.created_at).label("date"),
+            func.sum(VendorOrder.vendor_cost).label("revenue"),
+            func.count(VendorOrder.id).label("orders")
+        )
+        .where(
+            VendorOrder.vendor_id == vendor.id,
+            VendorOrder.created_at >= thirty_days_ago
+        )
+        .group_by("date")
+        .order_by("date")
+    )
+    revenue_result = await db.execute(revenue_query)
+    revenue_timeline = [
+        {"date": row.date, "revenue": row.revenue or 0, "orders": row.orders}
+        for row in revenue_result.all()
+    ]
+
+    # 2. Material Distribution
+    material_query = (
+        select(
+            Material.name.label("material_name"),
+            func.count(Order.id).label("count")
+        )
+        .join(Order, Material.id == Order.material_id)
+        .join(VendorOrder, Order.id == VendorOrder.order_id)
+        .where(VendorOrder.vendor_id == vendor.id)
+        .group_by(Material.name)
+        .order_by(desc("count"))
+        .limit(5)
+    )
+    material_result = await db.execute(material_query)
+    popular_materials = [
+        {"name": row.material_name, "count": row.count}
+        for row in material_result.all()
+    ]
+
+    return {
+        "revenue_timeline": revenue_timeline,
+        "popular_materials": popular_materials,
+        "summary": {
+            "avg_order_value": (await db.execute(
+                select(func.avg(VendorOrder.vendor_cost))
+                .where(VendorOrder.vendor_id == vendor.id)
+            )).scalar() or 0
+        }
+    }
+
 
 
 # === Vendor Tags ===

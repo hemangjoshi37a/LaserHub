@@ -375,28 +375,24 @@ export const BrowseDesignsPage: React.FC = () => {
                           <p className="mp-design-desc">{design.description}</p>
                         )}
                         <p className="mp-design-creator">by {design.creator_name}</p>
+                        
+                        {design.tags && design.tags.length > 0 && (
+                          <div className="mp-design-tags-inline">
+                            {design.tags.slice(0, 2).map((tag) => (
+                              <span key={tag} className="tag-pill-sm">#{tag}</span>
+                            ))}
+                            {design.tags.length > 2 && <span className="tag-pill-sm">+{design.tags.length - 2}</span>}
+                          </div>
+                        )}
+
                         <div className="mp-design-meta public-card-footer">
                           <span><Heart size={12} /> {design.likes_count ?? 0}</span>
-                          <span><Download size={12} /> {design.downloads_count ?? 0}</span>
                           <span className="mp-price">
                             {design.min_price ? fp(design.min_price) : '—'}
                           </span>
                         </div>
                       </div>
                     </Link>
-                    {design.tags && design.tags.length > 0 && (
-                      <div className="mp-design-tags">
-                        {design.tags.slice(0, 3).map((tag) => (
-                          <button
-                            key={tag}
-                            className={`tag-pill tag-pill-clickable ${activeTag === tag ? 'active' : ''}`}
-                            onClick={() => handleTagClick(tag)}
-                          >
-                            #{tag}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

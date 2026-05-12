@@ -4,6 +4,7 @@ import { Check, X, Loader2, FileText } from 'lucide-react';
 import { quotesApi, Quote } from '../services';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatPrice } from '../utils/formatPrice';
 
 export const PublicQuotePage: React.FC = () => {
   useDocumentTitle('Quote — LaserHub');
@@ -101,8 +102,8 @@ export const PublicQuotePage: React.FC = () => {
                 <td style={{ padding: '0.5rem' }}>{item.description || '—'}</td>
                 <td style={{ padding: '0.5rem' }}>{item.material}{item.thickness ? ` (${item.thickness}mm)` : ''}</td>
                 <td style={{ padding: '0.5rem', textAlign: 'right' }}>{item.qty}</td>
-                <td style={{ padding: '0.5rem', textAlign: 'right' }}>${item.unit_price.toFixed(2)}</td>
-                <td style={{ padding: '0.5rem', textAlign: 'right' }}>${item.subtotal.toFixed(2)}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatPrice(item.unit_price)}</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatPrice(item.subtotal)}</td>
               </tr>
             ))}
           </tbody>
@@ -110,16 +111,16 @@ export const PublicQuotePage: React.FC = () => {
 
         <div style={{ marginLeft: 'auto', maxWidth: 320 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Subtotal</span><strong>${quote.subtotal.toFixed(2)}</strong>
+            <span>Subtotal</span><strong>{formatPrice(quote.subtotal)}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Setup fee</span><strong>${quote.setup_fee.toFixed(2)}</strong>
+            <span>Setup fee</span><strong>{formatPrice(quote.setup_fee)}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Tax</span><strong>${quote.tax.toFixed(2)}</strong>
+            <span>Tax</span><strong>{formatPrice(quote.tax)}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', fontSize: '1.2rem', borderTop: '2px solid var(--border-color)', marginTop: '0.5rem' }}>
-            <span>Total</span><strong>${quote.total.toFixed(2)}</strong>
+            <span>Total</span><strong>{formatPrice(quote.total)}</strong>
           </div>
         </div>
 

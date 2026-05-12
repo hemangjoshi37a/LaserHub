@@ -12,6 +12,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import { formatPrice } from '../utils/formatPrice';
 
 // ---------------------------------------------------------------------------
 // Stripe initialisation — null when key is missing / test placeholder
@@ -329,7 +330,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
         <div className="order-summary">
           <h3>Order Summary</h3>
           <p>Order #: {createdOrder.order_number}</p>
-          <p>Total: ${amount.toFixed(2)}</p>
+          <p>Total: {formatPrice(amount)}</p>
           {guestTrackingToken && (
             <div style={{
               marginTop: '0.5rem', padding: '0.5rem 0.75rem',
@@ -485,9 +486,9 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
 
         {costEstimate && (
           <div className="order-total order-total-compact">
-            <span>Subtotal: ${costEstimate.breakdown.subtotal.toFixed(2)}</span>
-            <span>Tax: ${costEstimate.breakdown.tax.toFixed(2)}</span>
-            <strong>Total: ${costEstimate.breakdown.total.toFixed(2)}</strong>
+            <span>Subtotal: {formatPrice(costEstimate.breakdown.subtotal)}</span>
+            <span>Tax: {formatPrice(costEstimate.breakdown.tax)}</span>
+            <strong>Total: {formatPrice(costEstimate.breakdown.total)}</strong>
           </div>
         )}
 

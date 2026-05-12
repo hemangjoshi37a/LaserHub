@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Layers, Boxes } from 'lucide-react';
 import { MaterialManager } from '../components/MaterialManager';
 import { Inventory } from './Inventory';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type Tab = 'materials' | 'inventory';
 
@@ -13,6 +14,7 @@ type Tab = 'materials' | 'inventory';
  * have a single entry point for all material-related management.
  */
 export const MaterialsInventory: React.FC = () => {
+  useDocumentTitle('Materials & Inventory - LaserHub');
   const [tab, setTab] = useState<Tab>('materials');
 
   return (

@@ -59,7 +59,7 @@ async def get_featured_content(request: Request, db: AsyncSession = Depends(get_
     # Top vendors
     top_vendors = await db.execute(
         select(Vendor)
-        .where(Vendor.is_active == True)
+        .where(Vendor.is_active == True, Vendor.is_internal == False, Vendor.is_demo == False)
         .order_by(desc(Vendor.rating))
         .limit(6)
     )
@@ -70,14 +70,18 @@ async def get_featured_content(request: Request, db: AsyncSession = Depends(get_
         .join(Design, DesignListing.design_id == Design.id)
         .join(Vendor, DesignListing.vendor_id == Vendor.id)
         .join(Material, DesignListing.material_id == Material.id)
-        .where(DesignListing.is_active == True)
+        .where(
+            DesignListing.is_active == True,
+            Vendor.is_internal == False, Vendor.is_demo == False,
+            Material.is_internal == False, Material.is_demo == False
+        )
         .order_by(desc(DesignListing.created_at))
         .limit(12)
     )
 
     # Stats — query real counts from DB
     design_count = (await db.execute(select(func.count(Design.id)).where(Design.is_public == True))).scalar() or 0
-    vendor_count = (await db.execute(select(func.count(Vendor.id)).where(Vendor.is_active == True))).scalar() or 0
+    vendor_count = (await db.execute(select(func.count(Vendor.id)).where(Vendor.is_active == True, Vendor.is_internal == False, Vendor.is_demo == False))).scalar() or 0
     order_count = (await db.execute(select(func.count(Order.id)))).scalar() or 0
 
     return {
@@ -250,7 +254,12 @@ async def get_design_detail(design_id: int, request: Request, db: AsyncSession =
         select(DesignListing, Vendor.shop_name, Vendor.slug, Vendor.rating, Vendor.avg_turnaround_days, Material.name)
         .join(Vendor, DesignListing.vendor_id == Vendor.id)
         .join(Material, DesignListing.material_id == Material.id)
-        .where(DesignListing.design_id == design_id, DesignListing.is_active == True)
+        .where(
+            DesignListing.design_id == design_id, 
+            DesignListing.is_active == True,
+            Vendor.is_internal == False, Vendor.is_demo == False,
+            Material.is_internal == False, Material.is_demo == False
+        )
         .order_by(DesignListing.price)
     )
     listing_rows = listings_result.all()
@@ -379,6 +388,7 @@ async def compare_vendors(
             VendorMaterial.material_id == material_id,
             VendorMaterial.thickness_mm == thickness_mm,
             Vendor.is_active == True,
+            Vendor.is_internal == False, Vendor.is_demo == False
         )
     )
 

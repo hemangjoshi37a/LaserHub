@@ -308,18 +308,30 @@ export const MarketplacePage: React.FC = () => {
           <div className="mp-vendor-grid public-vendor-grid">
             {visibleVendors.map((v) => (
               <Link key={v.id} to={`/vendor/${v.slug}`} className="mp-vendor-card public-vendor-card">
-                <Avatar src={v.logo_url} name={v.shop_name} size={56} />
+                <div className="mp-vendor-card-header">
+                  <Avatar src={resolveMediaUrl(v.logo_url)} name={v.shop_name} size={64} />
+                  <div className="mp-vendor-status">
+                    {v.total_orders > 10 && <Badge variant="success">Top Rated</Badge>}
+                  </div>
+                </div>
                 <div className="mp-vendor-info">
                   <h4>{v.shop_name}</h4>
                   <div className="mp-vendor-meta">
-                    <span><Star size={12} /> {(v.rating || 0).toFixed(1)}</span>
+                    <span className="rating-pill">
+                      <Star size={12} fill="currentColor" /> 
+                      {(v.rating || 0).toFixed(1)}
+                    </span>
                     <span>{v.total_orders || 0} orders</span>
-                    {v.location && <span><MapPin size={12} /> {v.location}</span>}
                   </div>
+                  {v.location && (
+                    <p className="mp-vendor-loc">
+                      <MapPin size={12} /> {v.location}
+                    </p>
+                  )}
                   {v.specialties && v.specialties.length > 0 && (
                     <div className="public-vendor-specialties">
-                      {v.specialties.slice(0, 3).map((s) => (
-                        <Badge key={s} variant="info">{s}</Badge>
+                      {v.specialties.slice(0, 2).map((s) => (
+                        <span key={s} className="specialty-tag">{s}</span>
                       ))}
                     </div>
                   )}

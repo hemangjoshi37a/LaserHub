@@ -12,6 +12,7 @@ import { TagInput } from '../components/TagInput';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { vendorApi } from '../services';
 import type { Material, Order, VendorMaterialItem, VendorProfile, VendorAssetType } from '../services';
+import { formatPrice } from '../utils/formatPrice';
 
 interface VendorStats {
   total_orders?: number;
@@ -19,6 +20,12 @@ interface VendorStats {
   rating?: number;
   total_reviews?: number;
   material_count?: number;
+}
+
+interface VendorAnalytics {
+  revenue_timeline: { date: string; revenue: number; orders: number }[];
+  popular_materials: { name: string; count: number }[];
+  summary: { avg_order_value: number };
 }
 
 type Tab = 'overview' | 'materials' | 'orders' | 'listings' | 'profile';
@@ -43,6 +50,7 @@ export const VendorDashboardPage: React.FC = () => {
   useDocumentTitle('Vendor Dashboard — LaserHub');
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<VendorStats | null>(null);
+  const [analytics, setAnalytics] = useState<VendorAnalytics | null>(null);
   const [materials, setMaterials] = useState<VendorMaterialItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [_allMaterials, setAllMaterials] = useState<Material[]>([]);
@@ -69,24 +77,14 @@ export const VendorDashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [statsRes, matsRes, globalMats] = await Promise.all([
+      const [statsRes, analyticsRes, globalMats] = await Promise.all([
         api.get('/vendors/dashboard/stats').catch(() => ({ data: null })),
-        api.get(`/vendors/${vendorId}/materials`).catch(() => ({ data: [] })),
+        api.get('/vendors/dashboard/analytics').catch(() => ({ data: null })),
         api.get('/materials/').catch(() => ({ data: [] })),
       ]);
       setStats(statsRes.data);
-      setMaterials(matsRes.data || []);
+      setAnalytics(analyticsRes.data);
       setAllMaterials(globalMats.data || []);
-
-      // Load vendor specialties
-      try {
-        const vendorRes = await api.get(`/vendors/${vendorId}/tags`).catch(() => ({ data: null }));
-        if (vendorRes.data?.specialties) {
-          setVendorSpecialties(vendorRes.data.specialties);
-        }
-      } catch {
-        // no-op
-      }
 
       // Load full vendor profile (empty update body = no-op that returns current profile)
       try {
@@ -105,6 +103,15 @@ export const VendorDashboardPage: React.FC = () => {
           gmb_address: profile.gmb_address || '',
           gmb_website: profile.gmb_website || '',
         });
+
+        // Load vendor materials using real ID from profile
+        const matsRes = await api.get(`/vendors/${profile.id}/materials`).catch(() => ({ data: [] }));
+        setMaterials(matsRes.data || []);
+
+        // Load vendor specialties
+        if (profile.specialties) {
+          setVendorSpecialties(profile.specialties as unknown as string[]);
+        }
       } catch {
         // no-op — user may not be a vendor yet
       }
@@ -185,9 +192,10 @@ export const VendorDashboardPage: React.FC = () => {
   };
 
   const handleSaveSpecialties = async () => {
+    if (!vendor) return;
     setSavingTags(true);
     try {
-      await api.put(`/vendors/${vendorId}/tags`, { tags: vendorSpecialties });
+      await api.put(`/vendors/${vendor.id}/tags`, { tags: vendorSpecialties });
       toast.success('Specialties saved');
     } catch {
       toast.error('Failed to save specialties');
@@ -237,36 +245,99 @@ export const VendorDashboardPage: React.FC = () => {
       {tab === 'overview' && (
         <div className="vd-overview">
           {stats ? (
-            <div className="vd-stats-grid">
-              <div className="vd-stat-card vd-stat-orders">
-                <div className="vd-stat-icon"><Package size={20} /></div>
-                <div>
-                  <p className="vd-stat-value">{stats.total_orders}</p>
-                  <p className="vd-stat-label">Total Orders</p>
+            <>
+              <div className="vd-stats-grid">
+                <div className="vd-stat-card vd-stat-orders">
+                  <div className="vd-stat-icon"><Package size={20} /></div>
+                  <div>
+                    <p className="vd-stat-value">{stats.total_orders}</p>
+                    <p className="vd-stat-label">Total Orders</p>
+                  </div>
+                </div>
+                <div className="vd-stat-card vd-stat-revenue">
+                  <div className="vd-stat-icon"><DollarSign size={20} /></div>
+                  <div>
+                    <p className="vd-stat-value">{formatPrice((stats.total_revenue || 0))}</p>
+                    <p className="vd-stat-label">Revenue</p>
+                  </div>
+                </div>
+                <div className="vd-stat-card vd-stat-rating">
+                  <div className="vd-stat-icon"><Star size={20} /></div>
+                  <div>
+                    <p className="vd-stat-value">{(stats.rating || 0).toFixed(1)}</p>
+                    <p className="vd-stat-label">Rating ({stats.total_reviews || 0} reviews)</p>
+                  </div>
+                </div>
+                <div className="vd-stat-card vd-stat-materials">
+                  <div className="vd-stat-icon"><Layers size={20} /></div>
+                  <div>
+                    <p className="vd-stat-value">{stats.material_count}</p>
+                    <p className="vd-stat-label">Materials</p>
+                  </div>
                 </div>
               </div>
-              <div className="vd-stat-card vd-stat-revenue">
-                <div className="vd-stat-icon"><DollarSign size={20} /></div>
-                <div>
-                  <p className="vd-stat-value">${(stats.total_revenue || 0).toFixed(2)}</p>
-                  <p className="vd-stat-label">Revenue</p>
+
+              {analytics && (
+                <div className="vd-analytics-grid" style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+                  <div className="vd-chart-card vd-profile-card">
+                    <div className="vd-profile-card-header">
+                      <BarChart2 size={16} />
+                      <h3>Revenue (Last 30 Days)</h3>
+                    </div>
+                    <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '4px', padding: '1rem 0' }}>
+                      {analytics.revenue_timeline.map((day, idx) => {
+                        const maxRev = Math.max(...analytics.revenue_timeline.map(d => d.revenue), 1);
+                        const height = (day.revenue / maxRev) * 100;
+                        return (
+                          <div 
+                            key={idx} 
+                            style={{ 
+                              flex: 1, 
+                              height: `${height}%`, 
+                              background: 'var(--accent-color)', 
+                              borderRadius: '2px',
+                              opacity: 0.8,
+                              minWidth: '8px'
+                            }} 
+                            title={`${day.date}: ${formatPrice(day.revenue)}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    {analytics.revenue_timeline.length === 0 && (
+                      <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>No recent revenue data</p>
+                    )}
+                  </div>
+                  
+                  <div className="vd-popular-card vd-profile-card">
+                    <div className="vd-profile-card-header">
+                      <Layers size={16} />
+                      <h3>Popular Materials</h3>
+                    </div>
+                    <div style={{ marginTop: '1rem' }}>
+                      {analytics.popular_materials.map((mat, idx) => (
+                        <div key={idx} style={{ marginBottom: '0.8rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
+                            <span>{mat.name}</span>
+                            <span style={{ fontWeight: 'bold' }}>{mat.count} orders</span>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ 
+                              width: `${(mat.count / (analytics.revenue_timeline.reduce((acc, d) => acc + d.orders, 0) || 1)) * 100}%`, 
+                              height: '100%', 
+                              background: 'var(--accent-color)' 
+                            }} />
+                          </div>
+                        </div>
+                      ))}
+                      {analytics.popular_materials.length === 0 && (
+                        <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>No material data</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="vd-stat-card vd-stat-rating">
-                <div className="vd-stat-icon"><Star size={20} /></div>
-                <div>
-                  <p className="vd-stat-value">{(stats.rating || 0).toFixed(1)}</p>
-                  <p className="vd-stat-label">Rating ({stats.total_reviews || 0} reviews)</p>
-                </div>
-              </div>
-              <div className="vd-stat-card vd-stat-materials">
-                <div className="vd-stat-icon"><Layers size={20} /></div>
-                <div>
-                  <p className="vd-stat-value">{stats.material_count}</p>
-                  <p className="vd-stat-label">Materials</p>
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           ) : (
             <div className="vd-overview-empty">
               <AlertCircle size={32} />
@@ -307,7 +378,7 @@ export const VendorDashboardPage: React.FC = () => {
                     <tr key={m.id}>
                       <td className="cell-bold">{m.material_name}</td>
                       <td>{m.thickness_mm}mm</td>
-                      <td className="cell-accent">${(m.custom_price_per_cm2_mm || 0).toFixed(3)}</td>
+                      <td className="cell-accent">{formatPrice((m.custom_price_per_cm2_mm || 0))}</td>
                       <td>{m.cut_speed_mm_min} mm/min</td>
                       <td>{m.lead_time_days}d</td>
                       <td>
@@ -353,7 +424,7 @@ export const VendorDashboardPage: React.FC = () => {
                     <tr key={o.id}>
                       <td className="cell-accent">{o.order_number}</td>
                       <td>{o.customer_name}</td>
-                      <td className="cell-bold">${(o.total_amount || 0).toFixed(2)}</td>
+                      <td className="cell-bold">{formatPrice((o.total_amount || 0))}</td>
                       <td>
                         <span className={`status-badge ${getStatusClass(o.status)}`}>
                           {o.status}

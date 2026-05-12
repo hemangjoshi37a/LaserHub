@@ -1,3 +1,4 @@
+export { Navbar } from './Navbar';
 export { FileUpload } from './FileUpload';
 export { MaterialSelector } from './MaterialSelector';
 export { CostDisplay } from './CostDisplay';
@@ -7,3 +8,6 @@ export { AdminDashboard } from './AdminDashboard';
 export { Skeleton } from './Skeleton';
 export { ErrorState } from './ErrorState';
 export { ReviewModal } from './ReviewModal';
+export { StatCard } from './StatCard';
+export { RevenueChart } from './RevenueChart';
+export { NotificationPrompt } from './NotificationPrompt';

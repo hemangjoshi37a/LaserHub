@@ -12,6 +12,7 @@ pydantic>=2.5.3
 pydantic-settings>=2.1.0
 python-jose[cryptography]>=3.3.0  # TODO: evaluate PyJWT as python-jose is less actively maintained
 passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
 python-dotenv>=1.0.0
 stripe>=7.9.0
 ezdxf>=1.4.0

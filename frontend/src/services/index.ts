@@ -59,7 +59,17 @@ export interface FileAnalysis {
   cut_length_mm: number;
   estimated_cut_time_minutes: number;
   complexity_score: number;
+  validation_issues?: ValidationIssue[];
+  health_score: number;
+  health_status: 'optimal' | 'warning' | 'critical';
 }
+
+export const optimizationApi = {
+  optimizeFile: async (fileId: string): Promise<FileAnalysis> => {
+    const response = await api.post<FileAnalysis>(`/optimization/${fileId}/optimize`);
+    return response.data;
+  },
+};
 
 export interface CostBreakdown {
   material_cost: number;

@@ -14,6 +14,8 @@ import { superAdminApi, SAUser, SAVendor, SAStats, SADesign } from '../../servic
 import { useCurrencyStore, formatPrice } from '../../store/currencyStore';
 import type { SuperAdminTab } from './_shared';
 
+import { StatCard } from '../../components/StatCard';
+
 export function OverviewTab({ goTo }: { goTo: (t: SuperAdminTab) => void }) {
   const { currency } = useCurrencyStore();
   const [stats, setStats] = useState<SAStats | null>(null);
@@ -58,42 +60,42 @@ export function OverviewTab({ goTo }: { goTo: (t: SuperAdminTab) => void }) {
 
   if (loading) return <div className="sa-loading">Loading overview...</div>;
 
-  const cards = [
+  const cards: { label: string; value: string | number; icon: JSX.Element; tone: 'info' | 'success' | 'warning' | 'error' }[] = [
     {
       label: 'Total Users',
       value: stats?.total_users ?? 0,
       icon: <Users size={22} />,
-      tint: 'blue',
+      tone: 'info',
     },
     {
       label: 'Total Vendors',
       value: stats?.total_vendors ?? 0,
       icon: <Store size={22} />,
-      tint: 'purple',
+      tone: 'info',
     },
     {
       label: 'Total Designs',
       value: designs.length,
       icon: <Palette size={22} />,
-      tint: 'pink',
+      tone: 'info',
     },
     {
       label: 'Total Orders',
       value: stats?.total_orders ?? 0,
       icon: <Package size={22} />,
-      tint: 'amber',
+      tone: 'warning',
     },
     {
       label: 'Total Revenue',
       value: formatPrice(stats?.total_revenue ?? 0, currency),
       icon: <BarChart3 size={22} />,
-      tint: 'green',
+      tone: 'success',
     },
     {
       label: 'New This Month',
       value: stats?.users_this_month ?? 0,
       icon: <UserPlus size={22} />,
-      tint: 'cyan',
+      tone: 'info',
     },
   ];
 
@@ -101,13 +103,13 @@ export function OverviewTab({ goTo }: { goTo: (t: SuperAdminTab) => void }) {
     <div className="sa-overview">
       <div className="sa-stats-grid">
         {cards.map((c) => (
-          <div className={`sa-stat-card sa-stat-card--${c.tint}`} key={c.label}>
-            <div className="sa-stat-card__icon">{c.icon}</div>
-            <div className="sa-stat-card__body">
-              <span className="sa-stat-card__value">{c.value}</span>
-              <span className="sa-stat-card__label">{c.label}</span>
-            </div>
-          </div>
+          <StatCard
+            key={c.label}
+            label={c.label}
+            value={String(c.value)}
+            icon={c.icon}
+            tone={c.tone}
+          />
         ))}
       </div>
 

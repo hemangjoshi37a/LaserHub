@@ -69,41 +69,39 @@ async def _build_order_response(order: Order, db: AsyncSession) -> OrderResponse
     )
 
 
-async def get_current_admin(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+async def get_current_admin(
+    token: str = Depends(oauth2_scheme), 
+    db: AsyncSession = Depends(get_db)
+):
     """Validate admin JWT token.
-
-    Accepts:
-    - Admin tokens (role=admin, email matches ADMIN_EMAIL)
-    - Vendor/super_admin user tokens (looked up in DB by email)
+    Only allows users with 'admin' or 'super_admin' role.
     """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = decode_access_token(token)
         email = payload.get("sub")
-        role = payload.get("role")
-
         if not email:
-            raise HTTPException(status_code=401, detail="Not authorized")
-
-        # Legacy admin login (role=admin in JWT)
-        if role == "admin" and email == settings.ADMIN_EMAIL:
-            return email
-
-        # User-based access: check if user is vendor or super_admin
-        if role == "user":
-            from app.models import User as UserModel
-            result = await db.execute(select(UserModel).where(UserModel.email == email))
-            user = result.scalar_one_or_none()
-            if user and user.role in ("vendor", "super_admin"):
-                return email
-            # Also allow super admin email directly
-            if email == settings.SUPER_ADMIN_EMAIL:
-                return email
-
-        raise HTTPException(status_code=401, detail="Not authorized")
-    except HTTPException:
-        raise
+            raise credentials_exception
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise credentials_exception
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise credentials_exception
+        
+    if user.role not in ("admin", "super_admin") and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access admin resources"
+        )
+        
+    return user
 
 
 @router.post("/login", response_model=AdminToken)
@@ -183,13 +181,35 @@ async def get_dashboard(
 
     # Recent orders
     recent_orders_result = await db.execute(
-        select(Order).order_by(desc(Order.created_at)).limit(10)
+        select(Order)
+        .options(
+            selectinload(Order.material),
+            selectinload(Order.uploaded_file),
+        )
+        .order_by(desc(Order.created_at))
+        .limit(10)
     )
     recent_orders = recent_orders_result.scalars().all()
 
     recent_order_responses = []
     for order in recent_orders:
-        recent_order_responses.append(await _build_order_response(order, db))
+        material = order.material
+        uploaded_file = order.uploaded_file
+        recent_order_responses.append(OrderResponse(
+            id=order.id,
+            order_number=order.order_number,
+            file_id=uploaded_file.file_id if uploaded_file else str(order.file_id),
+            material_name=material.name if material else "Unknown",
+            thickness_mm=order.thickness_mm,
+            quantity=order.quantity,
+            total_amount=order.total_amount,
+            status=order.status,
+            customer_email=order.customer_email,
+            customer_name=order.customer_name,
+            shipping_address=order.shipping_address,
+            created_at=order.created_at,
+            updated_at=order.updated_at,
+        ))
 
     return DashboardStats(
         total_orders=total_orders,

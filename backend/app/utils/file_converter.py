@@ -89,7 +89,7 @@ def cdr_to_svg(cdr_path: str, timeout: int = 60) -> str:
         return svg_out.read_text(encoding="utf-8", errors="replace")
 
 
-def postscript_to_svg(ps_path: str) -> str:
+async def postscript_to_svg(ps_path: str) -> str:
     """Convert a PostScript / EPS / AI / PDF file to SVG.
 
     Tries several strategies in order of quality:
@@ -101,15 +101,16 @@ def postscript_to_svg(ps_path: str) -> str:
     # 1. Try inkscape
     if shutil.which("inkscape"):
         try:
-            result = subprocess.run(
-                ["inkscape", ps_path, "--export-type=svg", "--export-filename=-"],
-                capture_output=True,
-                text=True,
-                timeout=30,
+            import asyncio
+            proc = await asyncio.create_subprocess_exec(
+                "inkscape", ps_path, "--export-type=svg", "--export-filename=-",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout
-        except (subprocess.TimeoutExpired, Exception) as exc:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+            if proc.returncode == 0 and stdout.strip():
+                return stdout.decode("utf-8")
+        except (asyncio.TimeoutError, Exception) as exc:
             logger.debug(f"inkscape conversion failed: {exc}")
 
     # 2. Try ghostscript -> PDF -> cairosvg
@@ -289,7 +290,8 @@ class VectorFileConverter:
             svg_str = dxf_to_svg(str(input_path_obj))
             out.write_text(svg_str, encoding="utf-8")
         elif conversion_key in ((".eps", ".svg"), (".ai", ".svg"), (".pdf", ".svg")):
-            svg_str = postscript_to_svg(str(input_path_obj))
+            import asyncio
+            svg_str = asyncio.run(postscript_to_svg(str(input_path_obj)))
             out.write_text(svg_str, encoding="utf-8")
         elif conversion_key == (".svg", ".dxf"):
             self._svg_to_dxf(input_path_obj, out, options)
