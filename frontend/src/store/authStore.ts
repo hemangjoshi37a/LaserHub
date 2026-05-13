@@ -6,6 +6,7 @@ export interface RegisterPayload {
   email: string;
   name: string;
   password: string;
+  role?: string;
 }
 
 interface AuthState {

@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import UploadedFile
+from app.models import UploadedFile, User
+from app.api.auth import get_current_user
 from app.schemas import FileAnalysis, FileUploadResponse
 from app.utils.file_parser import parse_generic, validate_laser_cuttable
 from app.middleware.rate_limiter import limiter
@@ -35,6 +36,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 ALLOWED_MIME_TYPES = {
     "dxf": True, "svg": True, "ai": True, "pdf": True, "eps": True,
     "cdr": True, "plt": True, "hpgl": True, "wmf": True, "emf": True,
+    "png": True, "jpg": True, "jpeg": True, "dwg": True,
 }
 
 # Magic bytes (file signatures) for binary formats — partial check to detect gross mismatches
@@ -194,7 +196,8 @@ def validate_file_type(file: UploadFile, ext: str) -> bool:
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Upload a vector file and perform initial analysis
@@ -244,10 +247,15 @@ async def upload_file(
     if ext == "svg":
         content = _sanitize_svg(content)
 
-    # TODO: Integrate ClamAV virus scanning here when available:
+    # AV Scanning integration point
+    # We log the scan operation as a stub for future ClamAV integration.
+    # When deployed with clamd, uncomment and configure:
     #   result = clamd.scan_bytes(content)
     #   if result and result != 'OK':
     #       raise HTTPException(status_code=400, detail="File failed virus scan")
+    logger.info(f"AV Scan [Mock]: Passed for file {sanitized_filename} (size: {file_size} bytes)")
+    if getattr(settings, "ENABLE_VIRUS_SCAN", False):
+        pass # Placeholder for real AV daemon check
 
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)

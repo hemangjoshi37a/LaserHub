@@ -848,8 +848,8 @@ async def financials_tax_report(
     )
 
 
-@router.post("/settings/seed-payment")
-async def seed_payment_settings(
+@router.post("/settings/initialize-payment-configs")
+async def initialize_payment_configs(
     db: AsyncSession = Depends(get_db),
     admin: str = Depends(get_current_admin)
 ):

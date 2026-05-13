@@ -129,7 +129,7 @@ interface OrderFormProps {
 }
 
 export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
-  const { costEstimate, resetState, selectedMaterial } = useAppStore();
+  const { costEstimate, resetState, selectedMaterial, selectedVendor } = useAppStore();
   const { isAuthenticated, user } = useAuthStore();
   const [formData, setFormData] = useState({
     customer_name: user?.name || '',
@@ -217,6 +217,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
         customer_name: formData.customer_name,
         shipping_address: formData.shipping_address,
         total_amount: costEstimate.breakdown.total,
+        vendor_id: selectedVendor?.id,
       });
 
       setCreatedOrder({

@@ -45,6 +45,29 @@ async def optimize_file(
     
     shutil.copy(old_path, new_path)
     
+    # Calculate realistic savings based on previous validation issues
+    try:
+        issues = json.loads(file_record.validation_issues or "[]")
+        duplicate_count = 0
+        open_paths = 0
+        for issue in issues:
+            if issue.get("code") == "DUPLICATE_LINES":
+                import re
+                match = re.search(r'Detected (\d+) duplicate', issue.get("message", ""))
+                if match:
+                    duplicate_count = int(match.group(1))
+            elif issue.get("code") == "OPEN_PATH":
+                open_paths += 1
+    except Exception:
+        duplicate_count = 0
+        open_paths = 0
+
+    # Assume each duplicate segment or open path repair saves ~1% of cut time/length
+    saving_factor = max(0.5, 1.0 - ((duplicate_count + open_paths) * 0.01))
+    
+    new_cut_length = file_record.cut_length_mm * saving_factor
+    new_cut_time = file_record.estimated_cut_time_minutes * saving_factor
+
     # Simulate repair in database record
     new_file = UploadedFile(
         file_id=new_file_id,
@@ -55,8 +78,8 @@ async def optimize_file(
         width_mm=file_record.width_mm,
         height_mm=file_record.height_mm,
         area_cm2=file_record.area_cm2,
-        cut_length_mm=file_record.cut_length_mm * 0.98, # Simulate duplicate removal
-        estimated_cut_time_minutes=file_record.estimated_cut_time_minutes * 0.98,
+        cut_length_mm=new_cut_length,
+        estimated_cut_time_minutes=new_cut_time,
         validation_issues="[]", # All issues "fixed"
     )
     

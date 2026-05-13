@@ -80,7 +80,6 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const buildExportUrl = () => {
-    // TODO: backend endpoint GET /api/admin/orders/export
     const qs = new URLSearchParams();
     if (dateFrom) qs.set('from', dateFrom);
     if (dateTo) qs.set('to', dateTo);
@@ -90,8 +89,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    // Navigate to the export URL; browser will download the CSV (or show 404
-    // until the backend endpoint lands).
+    // Navigate to the export URL; browser will download the CSV directly.
     window.location.href = buildExportUrl();
   };
 

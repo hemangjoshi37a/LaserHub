@@ -185,6 +185,7 @@ class OrderCreate(BaseModel):
     customer_name: str
     shipping_address: str
     total_amount: float
+    vendor_id: Optional[int] = None
 
 
 class OrderResponse(BaseModel):
@@ -301,6 +302,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating user"""
     password: str
+    role: Optional[str] = "customer"
 
     @field_validator("password")
     @classmethod

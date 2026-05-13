@@ -5,9 +5,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import type { FallbackProps } from 'react-error-boundary';
 import { ErrorFallback } from './components/ErrorFallback';
 import { HomePage } from './pages/HomePage';
-import { VendorDashboardPage } from './pages/VendorDashboardPage';
-import { UserDashboardPage } from './pages/UserDashboardPage';
-import { SuperAdminPage } from './pages/SuperAdminPage';
+import { AdminPage } from './pages/AdminPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { BrowseDesignsPage } from './pages/BrowseDesignsPage';
 import { VendorsPage } from './pages/VendorsPage';
@@ -36,6 +34,19 @@ import { Toaster } from 'sonner';
 import { Github } from 'lucide-react';
 import './App.css';
 
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, hasHydrated } = useAuthStore();
+  const location = useLocation();
+
+  if (!hasHydrated) return null;
+
+  if (!isAuthenticated) {
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function AppContent() {
   const { checkAuth } = useAuthStore();
   const { detect: detectCurrency } = useCurrencyStore();
@@ -60,7 +71,7 @@ function AppContent() {
         >
           <Routes>
             <Route path="/" element={<MarketplacePage />} />
-            <Route path="/upload" element={<HomePage />} />
+            <Route path="/upload" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
             <Route path="/browse" element={<BrowseDesignsPage />} />
             <Route path="/vendors" element={<VendorsPage />} />
             <Route path="/vendor/register" element={<VendorRegisterPage />} />
@@ -68,9 +79,9 @@ function AppContent() {
             <Route path="/design/:id" element={<DesignDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/dashboard/*" element={<UserDashboardPage />} />
-            <Route path="/admin/*" element={<SuperAdminPage />} />
-            <Route path="/vendor/dashboard/*" element={<VendorDashboardPage />} />
+            <Route path="/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/admin/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/vendor/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />
             <Route path="/refund-policy" element={<RefundPolicyPage />} />

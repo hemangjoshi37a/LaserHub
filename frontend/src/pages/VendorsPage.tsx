@@ -45,12 +45,7 @@ const RatingStars: React.FC<{ rating: number }> = ({ rating }) => (
   </span>
 );
 
-const isDemoVendor = (v: Vendor) => {
-  const name = (v.shop_name || '').toLowerCase();
-  if (name.includes('hemang joshi') || name.includes('admin user')) return true;
-  if ((v.total_orders || 0) === 0 && name.includes('shop')) return true;
-  return false;
-};
+// Removed isDemoVendor filter to show all registered vendors as requested by the user.
 
 export const VendorsPage: React.FC = () => {
   useDocumentTitle('Laser Cutting Vendors — LaserHub');
@@ -84,10 +79,8 @@ export const VendorsPage: React.FC = () => {
     const locs = new Set<string>();
     const specs = new Set<string>();
     vendors.forEach((v) => {
-      if (!isDemoVendor(v)) {
-        if (v.location) locs.add(v.location);
-        (v.specialties || []).forEach((s) => specs.add(s));
-      }
+      if (v.location) locs.add(v.location);
+      (v.specialties || []).forEach((s) => specs.add(s));
     });
     return {
       locations: Array.from(locs).sort(),
@@ -96,7 +89,6 @@ export const VendorsPage: React.FC = () => {
   }, [vendors]);
 
   const filtered = vendors
-    .filter((v) => !isDemoVendor(v))
     .filter((v) => {
       const q = searchText.toLowerCase();
       const matchesSearch =

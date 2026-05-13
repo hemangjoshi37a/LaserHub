@@ -180,3 +180,22 @@ class EmailService:
                 "tracking_number": tracking_number
             }
         )
+
+    @classmethod
+    async def send_quote_email(
+        cls,
+        to_email: str,
+        name: str,
+        quote_number: str,
+        quote_url: str
+    ) -> bool:
+        return await cls.send_email(
+            to_email=to_email,
+            subject=f"Your LaserHub Quote: #{quote_number}",
+            template_name="quote_email.html",
+            template_data={
+                "name": name,
+                "quote_number": quote_number,
+                "quote_url": quote_url
+            }
+        )

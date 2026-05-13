@@ -11,12 +11,14 @@ import {
   Upload,
   BookOpen,
   ShieldCheck,
+  Building2,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleLogin } from '../components/GoogleLogin';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
-const BENEFITS = [
+const CUSTOMER_BENEFITS = [
   {
     icon: <Search size={18} />,
     title: 'Compare prices from multiple vendors',
@@ -39,18 +41,48 @@ const BENEFITS = [
   },
 ];
 
+const VENDOR_BENEFITS = [
+  {
+    icon: <Building2 size={18} />,
+    title: 'Reach thousands of buyers',
+    desc: 'Connect with makers, engineers, and designers looking for laser cutting.',
+  },
+  {
+    icon: <Loader2 size={18} />,
+    title: 'Automated Quote Engine',
+    desc: 'Let our algorithm handle the pricing based on your custom material rates.',
+  },
+  {
+    icon: <ShieldCheck size={18} />,
+    title: 'Secure Payouts',
+    desc: 'Integrated payment processing with weekly payouts to your bank account.',
+  },
+  {
+    icon: <Search size={18} />,
+    title: 'Manage Orders',
+    desc: 'Powerful dashboard to track production, shipping, and customer history.',
+  },
+];
+
 export const RegisterPage: React.FC = () => {
   useDocumentTitle('Create Account — LaserHub');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'customer' | 'vendor'>('customer');
   const navigate = useNavigate();
   const { register, setUser, isLoading } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
     try {
-      await register({ email, name, password });
+      await register({ email, name, password, role });
       toast.success('Registration successful! Please check your email for verification.');
       navigate('/login');
     } catch (error) {
@@ -66,6 +98,28 @@ export const RegisterPage: React.FC = () => {
           <p>Join LaserHub for order history and faster checkout</p>
 
           <form onSubmit={handleSubmit} className="auth-form">
+            <div className="role-selector-container">
+              <label>I want to...</label>
+              <div className="role-selector">
+                <button
+                  type="button"
+                  className={`role-btn ${role === 'customer' ? 'active' : ''}`}
+                  onClick={() => setRole('customer')}
+                >
+                  <Users size={16} />
+                  <span>Order Designs</span>
+                </button>
+                <button
+                  type="button"
+                  className={`role-btn ${role === 'vendor' ? 'active' : ''}`}
+                  onClick={() => setRole('vendor')}
+                >
+                  <Building2 size={16} />
+                  <span>Sell Services</span>
+                </button>
+              </div>
+            </div>
+
             <div className="form-group">
               <label htmlFor="name">Full Name</label>
               <div className="input-with-icon">
@@ -109,6 +163,7 @@ export const RegisterPage: React.FC = () => {
                   required
                 />
               </div>
+              <p className="field-hint">Must be at least 8 characters</p>
             </div>
 
             <button type="submit" className="auth-submit" disabled={isLoading}>
@@ -141,7 +196,7 @@ export const RegisterPage: React.FC = () => {
             built by makers for makers.
           </p>
           <ul className="auth-benefits-list">
-            {BENEFITS.map((b) => (
+            {(role === 'vendor' ? VENDOR_BENEFITS : CUSTOMER_BENEFITS).map((b) => (
               <li key={b.title}>
                 <span className="auth-benefits-icon">{b.icon}</span>
                 <div>

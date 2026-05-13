@@ -47,6 +47,9 @@ function loadGsiScript(): Promise<void> {
   return gsiScriptPromise;
 }
 
+// Track initialization to avoid "already called initialize" warnings
+let isGsiInitialized = false;
+
 export const GoogleLogin: React.FC<GoogleLoginProps> = ({ onSuccess }) => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -69,11 +72,14 @@ export const GoogleLogin: React.FC<GoogleLoginProps> = ({ onSuccess }) => {
     loadGsiScript().then(() => {
       if (!window.google || !buttonRef.current) return;
 
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleCredentialResponse,
-        auto_select: false,
-      });
+      if (!(window as any).__gsi_initialized) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredentialResponse,
+          auto_select: false,
+        });
+        (window as any).__gsi_initialized = true;
+      }
 
       // Clear previous render
       buttonRef.current.innerHTML = '';

@@ -21,6 +21,19 @@ if (SENTRY_DSN) {
   });
 }
 
+// dev-logs integration
+if (import.meta.env.DEV) {
+  fetch('http://localhost:4445/overlay.js', { method: 'HEAD', mode: 'no-cors' })
+    .then(() => {
+      const s = document.createElement('script');
+      s.src = 'http://localhost:4445/overlay.js';
+      document.head.appendChild(s);
+    })
+    .catch(() => {
+      // Quietly ignore if dev-logs server is not running
+    });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary fallback={<ErrorFallback />}>

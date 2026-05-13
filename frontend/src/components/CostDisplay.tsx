@@ -144,6 +144,7 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
             quantity
           );
           setCostEstimate(estimate);
+          onCalculateComplete();
         } catch (error: any) {
           toast.error('Calculation failed', {
             description: error.response?.data?.detail || 'Please try again',

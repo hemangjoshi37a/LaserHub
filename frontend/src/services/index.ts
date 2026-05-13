@@ -317,6 +317,7 @@ export const ordersApi = {
     customer_name: string;
     shipping_address: string;
     total_amount: number;
+    vendor_id?: number;
   }): Promise<Order> => {
     const response = await api.post<Order>('/orders/', orderData);
     return response.data;
@@ -571,7 +572,7 @@ export const adminApi = {
   },
 
   seedPaymentSettings: async (): Promise<any> => {
-    const response = await api.post('/admin/settings/seed-payment');
+    const response = await api.post('/admin/settings/initialize-payment-configs');
     return response.data;
   },
 

@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
+from app.api.auth import get_current_user
 from app.models import Material, Order, UploadedFile, User, VendorOrder, Vendor
 from app.schemas import OrderCreate, OrderResponse
 
@@ -34,24 +35,12 @@ async def create_order(
     order_data: OrderCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    token: str = Depends(_optional_bearer),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new order
     """
-    # Resolve authenticated user if a JWT was supplied
-    current_user_id: int | None = None
-    if token:
-        try:
-            payload = decode_access_token(token)
-            email = payload.get("sub")
-            if email:
-                user_result = await db.execute(select(User).where(User.email == email))
-                db_user = user_result.scalar_one_or_none()
-                if db_user:
-                    current_user_id = db_user.id
-        except Exception:
-            pass  # Guest order — no user linked
+    current_user_id = current_user.id
 
     # Verify file exists
     result = await db.execute(
@@ -101,15 +90,21 @@ async def create_order(
         status="pending",
     )
 
-    # Generate guest tracking token when no user is linked
-    if current_user_id is None:
-        order.guest_tracking_token = str(uuid.uuid4())
-
     db.add(order)
     await db.commit()
     await db.refresh(order)
 
-    # Increment vendor total_orders if a VendorOrder is linked
+    # Create VendorOrder linkage if vendor_id was provided (e.g. from custom upload with vendor selection)
+    if order_data.vendor_id:
+        vendor_order = VendorOrder(
+            order_id=order.id,
+            vendor_id=order_data.vendor_id,
+            status="pending"
+        )
+        db.add(vendor_order)
+        await db.commit()
+    
+    # Check for linked vendor order (either newly created above or via other logic)
     vendor_order_result = await db.execute(
         select(VendorOrder).where(VendorOrder.order_id == order.id)
     )

@@ -85,8 +85,47 @@ class GeometryEngine:
     @staticmethod
     def suggest_repair(segments: List[Tuple[Tuple[float, float], Tuple[float, float]]], tolerance: float = 0.5) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
         """
-        Heal a design by snapping nearby endpoints together.
+        Heal a design by snapping nearby endpoints together and removing zero-length segments.
         """
-        repaired = list(segments)
-        # TODO: Implement point-clustering and snapping
-        return repaired
+        if not segments:
+            return []
+            
+        points = []
+        for p1, p2 in segments:
+            points.append(p1)
+            points.append(p2)
+            
+        # Group points into clusters based on tolerance
+        clusters = []
+        for p in points:
+            found_cluster = False
+            for cluster in clusters:
+                if GeometryEngine.calculate_distance(p, cluster[0]) <= tolerance:
+                    cluster.append(p)
+                    found_cluster = True
+                    break
+            if not found_cluster:
+                clusters.append([p])
+                
+        # Calculate centroids and map original points to their centroid
+        point_map = {}
+        for cluster in clusters:
+            avg_x = sum(pt[0] for pt in cluster) / len(cluster)
+            avg_y = sum(pt[1] for pt in cluster) / len(cluster)
+            centroid = (round(avg_x, 4), round(avg_y, 4))
+            for pt in cluster:
+                point_map[pt] = centroid
+                
+        # Rebuild segments and discard zero-length segments
+        repaired = []
+        for p1, p2 in segments:
+            new_p1 = point_map[p1]
+            new_p2 = point_map[p2]
+            if GeometryEngine.calculate_distance(new_p1, new_p2) > 0.0001:
+                repaired.append((new_p1, new_p2))
+                
+        # Remove exact duplicate segments
+        duplicates = GeometryEngine.detect_duplicates(repaired, tolerance=0.001)
+        final_repaired = [seg for i, seg in enumerate(repaired) if i not in duplicates]
+        
+        return final_repaired

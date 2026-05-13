@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -213,6 +213,7 @@ async def update_quote(
 @router.post("/{quote_id}/send", response_model=QuoteResponse)
 async def send_quote(
     quote_id: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     vendor: Vendor = Depends(get_current_vendor),
 ):
@@ -225,13 +226,22 @@ async def send_quote(
     await db.commit()
     await db.refresh(q)
 
-    # TODO: send email via EmailService
-    public_url = f"/q/{q.quote_number}"
+    from app.services.email_service import EmailService
+    from app.core.config import settings
+
+    public_url = f"{settings.FRONTEND_URL}/q/{q.quote_number}"
     logger.info(
         "Quote %s sent to %s — public view: %s",
         q.quote_number, q.customer_email, public_url,
     )
-    print(f"[QUOTE EMAIL] To: {q.customer_email} | Quote {q.quote_number} | URL: {public_url}")
+
+    background_tasks.add_task(
+        EmailService.send_quote_email,
+        q.customer_email,
+        q.customer_name,
+        q.quote_number,
+        public_url
+    )
 
     return _to_response(q)
 

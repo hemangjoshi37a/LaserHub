@@ -7,6 +7,8 @@ import { Button, PageHeader } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useAuthStore } from '../store/authStore';
+import { toast } from 'sonner';
 
 // Lazy-load the 3D preview so Three.js is only fetched when a user opens a
 // design detail page (same as the upload wizard — see OBS-04 in the plan).
@@ -78,6 +80,7 @@ export const DesignDetailPage: React.FC = () => {
   const [related, setRelated] = useState<RelatedDesign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isAuthenticated } = useAuthStore();
 
   useDocumentTitle(design ? `${design.title} — LaserHub` : 'Design — LaserHub');
 
@@ -331,6 +334,12 @@ export const DesignDetailPage: React.FC = () => {
                         size="sm"
                         icon={<ShoppingCart size={14} />}
                         onClick={() => {
+                          if (!isAuthenticated) {
+                            toast.error('Please sign in to place an order');
+                            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                            navigate(`/login?returnTo=${returnUrl}`);
+                            return;
+                          }
                           const params = new URLSearchParams({
                             design_id: String(design.id),
                             vendor: l.vendor_slug,
@@ -338,6 +347,7 @@ export const DesignDetailPage: React.FC = () => {
                             thickness: String(l.thickness_mm),
                           });
                           if (design.file_id) params.set('file_id', design.file_id);
+                          params.set('step', '2');
                           navigate(`/upload?${params.toString()}`);
                         }}
                       >

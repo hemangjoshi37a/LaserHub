@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 import ezdxf
 from ezdxf import bbox
+from PIL import Image
 from app.utils.geometry_engine import GeometryEngine
 
 logger = logging.getLogger(__name__)
@@ -1086,6 +1087,45 @@ def _validate_dxf(file_path: str) -> list:
     return issues
 
 
+def parse_image(file_path: str) -> Dict[str, Any]:
+    """
+    Parse raster images (PNG, JPG, JPEG) to get dimensions.
+    Estimates cut length as the perimeter of the image.
+    """
+    try:
+        with Image.open(file_path) as img:
+            width_px, height_px = img.size
+            # Get DPI (dots per inch) - fallback to 72 if missing
+            dpi = img.info.get('dpi', (72, 72))
+            if isinstance(dpi, (tuple, list)) and len(dpi) >= 2:
+                dpi_x, dpi_y = float(dpi[0]), float(dpi[1])
+            else:
+                dpi_x, dpi_y = 72.0, 72.0
+            
+            # Sanity check for DPI (some files have 0 or weird values)
+            if dpi_x <= 0: dpi_x = 72.0
+            if dpi_y <= 0: dpi_y = 72.0
+
+            width_mm = (width_px / dpi_x) * 25.4
+            height_mm = (height_px / dpi_y) * 25.4
+            
+    except Exception as e:
+        logger.error(f"Failed to parse image {file_path}: {e}")
+        raise ValueError(f"Invalid image file: {e}")
+
+    area_cm2 = (width_mm * height_mm) / 100
+    cut_length_mm = 2 * (width_mm + height_mm) # Perimeter heuristic
+
+    return {
+        "format": Path(file_path).suffix.upper()[1:],
+        "width_mm": round(width_mm, 2),
+        "height_mm": round(height_mm, 2),
+        "area_cm2": round(area_cm2, 2),
+        "cut_length_mm": round(cut_length_mm, 2),
+        "notes": "Raster image detected. Laser will engrave this or cut the boundary."
+    }
+
+
 def parse_generic(file_path: str) -> Dict[str, Any]:
     """
     Determine format and parse. Returns sensible defaults on failure
@@ -1104,6 +1144,10 @@ def parse_generic(file_path: str) -> Dict[str, Any]:
         '.hpgl': ('HPGL', _parse_hpgl),
         '.wmf': ('WMF', _parse_binary_fallback),
         '.emf': ('EMF', _parse_binary_fallback),
+        '.png': ('PNG', parse_image),
+        '.jpg': ('JPG', parse_image),
+        '.jpeg': ('JPEG', parse_image),
+        '.dwg': ('DWG', _parse_binary_fallback),
     }
 
     if ext not in parsers:

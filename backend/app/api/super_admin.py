@@ -32,8 +32,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 async def get_super_admin(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    """Only the platform owner (SUPER_ADMIN_EMAIL) may proceed."""
-    if current_user.email != settings.SUPER_ADMIN_EMAIL:
+    """Only the platform owner (SUPER_ADMIN_EMAIL) or users with super_admin role may proceed."""
+    # Allow if email matches SUPER_ADMIN_EMAIL OR if user has super_admin role OR is_admin flag
+    is_sa_email = current_user.email == settings.SUPER_ADMIN_EMAIL
+    is_sa_role = current_user.role == "super_admin"
+    is_admin_flag = getattr(current_user, "is_admin", False)
+
+    if not (is_sa_email or is_sa_role or is_admin_flag):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super admin access only",

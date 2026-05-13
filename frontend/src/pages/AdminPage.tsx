@@ -782,9 +782,9 @@ export const AdminPage: React.FC = () => {
   const { user, isLoading: authLoading, hasHydrated, logout, checkAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Derive activeTab from URL path: /admin/materials -> "materials"
-  const pathSuffix = location.pathname.replace(/^\/admin\/?/, '').replace(/\/$/, '');
-  const tabParam = (pathSuffix || null) as TabKey | null;
+  // Derive activeTab from URL path: /admin/materials or /dashboard/profile
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const tabParam = (pathParts[pathParts.length - 1] || null) as TabKey | null;
 
   useEffect(() => {
     checkAuth();
@@ -911,27 +911,31 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const renderNavSection = (items: NavItem[], sectionLabel?: string) => (
-    <>
-      {sectionLabel && (
-        <div className="adm-nav-section-label">{sectionLabel}</div>
-      )}
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.key}
-            to={`/admin/${item.key}`}
-            className={`adm-nav-link ${activeTab === item.key ? 'adm-nav-link--active' : ''}`}
-            onClick={() => setMobileOpen(false)}
-          >
-            <Icon size={18} />
-            <span className="adm-nav-label">{item.label}</span>
-          </Link>
-        );
-      })}
-    </>
-  );
+  const renderNavSection = (items: NavItem[], sectionLabel?: string) => {
+    const basePath = location.pathname.startsWith('/dashboard') ? '/dashboard' : 
+                     location.pathname.startsWith('/vendor/dashboard') ? '/vendor/dashboard' : '/admin';
+    return (
+      <>
+        {sectionLabel && (
+          <div className="adm-nav-section-label">{sectionLabel}</div>
+        )}
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.key}
+              to={`${basePath}/${item.key}`}
+              className={`adm-nav-link ${activeTab === item.key ? 'adm-nav-link--active' : ''}`}
+              onClick={() => setMobileOpen(false)}
+            >
+              <Icon size={18} />
+              <span className="adm-nav-label">{item.label}</span>
+            </Link>
+          );
+        })}
+      </>
+    );
+  };
 
   return (
     <div className="adm-shell">

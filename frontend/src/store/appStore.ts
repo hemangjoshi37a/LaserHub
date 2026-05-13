@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Material, CostEstimate, FileUploadResponse, FileAnalysis, Order } from '../services';
+import { Material, CostEstimate, FileUploadResponse, FileAnalysis, Order, VendorProfile } from '../services';
 
 interface AppState {
   // File state
@@ -11,6 +11,9 @@ interface AppState {
   selectedMaterial: Material | null;
   selectedThickness: number | null;
   quantity: number;
+  
+  // Vendor selection
+  selectedVendor: VendorProfile | null;
   
   // Cost estimate
   costEstimate: CostEstimate | null;
@@ -29,6 +32,7 @@ interface AppState {
   setSelectedMaterial: (material: Material | null) => void;
   setSelectedThickness: (thickness: number | null) => void;
   setQuantity: (quantity: number) => void;
+  setSelectedVendor: (vendor: VendorProfile | null) => void;
   setCostEstimate: (estimate: CostEstimate | null) => void;
   setCurrentOrder: (order: Order | null) => void;
   setIsCalculating: (loading: boolean) => void;
@@ -44,6 +48,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedMaterial: null,
   selectedThickness: null,
   quantity: 1,
+  selectedVendor: null,
   costEstimate: null,
   currentOrder: null,
   isCalculating: false,
@@ -56,6 +61,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMaterial: (material) => set({ selectedMaterial: material }),
   setSelectedThickness: (thickness) => set({ selectedThickness: thickness }),
   setQuantity: (quantity) => set({ quantity }),
+  setSelectedVendor: (vendor) => set({ selectedVendor: vendor }),
   setCostEstimate: (estimate) => set({ costEstimate: estimate }),
   setCurrentOrder: (order) => set({ currentOrder: order }),
   setIsCalculating: (loading) => set({ isCalculating: loading }),
@@ -67,6 +73,7 @@ export const useAppStore = create<AppState>((set) => ({
     selectedMaterial: null,
     selectedThickness: null,
     quantity: 1,
+    selectedVendor: null,
     costEstimate: null,
     currentOrder: null,
   }),

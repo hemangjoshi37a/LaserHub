@@ -77,13 +77,7 @@ const CATEGORIES = [
 ];
 
 // Names that are obvious demo/test data and should not be shown publicly.
-const isDemoVendor = (v: { shop_name: string; total_orders: number }) => {
-  const name = (v.shop_name || '').toLowerCase();
-  if (name.includes('hemang joshi') || name.includes('admin user')) return true;
-  // Vendors named "<something>'s Shop" with zero activity are seed placeholders.
-  if (v.total_orders === 0 && /['’]s shop$/.test(name)) return true;
-  return false;
-};
+// Removed isDemoVendor filter to ensure all registered vendors are shown as requested by the user.
 
 export const MarketplacePage: React.FC = () => {
   useDocumentTitle('Marketplace — LaserHub');
@@ -120,10 +114,7 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
-  const visibleVendors = useMemo(
-    () => vendors.filter((v) => !isDemoVendor(v)),
-    [vendors]
-  );
+  const visibleVendors = vendors;
 
   // UI-B-01: dedupe listings by design_id. Show one card per design with the
   // lowest price and a count of material variants. Buyers pick material/thickness

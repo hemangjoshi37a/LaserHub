@@ -3,6 +3,7 @@ Authentication and User API endpoints
 """
 
 import uuid
+import re
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -20,7 +21,7 @@ from app.core.security import (
     verify_password,
 )
 from app.middleware.rate_limiter import limiter
-from app.models import Material, Order, UploadedFile, User
+from app.models import Material, Order, UploadedFile, User, Vendor
 from app.schemas import (
     OrderResponse,
     PasswordResetConfirm,
@@ -42,6 +43,9 @@ async def send_verification_email(email: str, name: str, token: str):
 async def send_reset_email(email: str, token: str):
     """Send real password reset email"""
     await EmailService.send_password_reset(email, token)
+
+def slugify(text: str) -> str:
+    return re.sub(r'[\s\W\_]+', '-', text).lower().strip('-')
 
 @router.post("/register", response_model=UserResponse)
 @limiter.limit("5 per minute")
@@ -68,6 +72,7 @@ async def register(
         email=user_data.email,
         name=user_data.name,
         hashed_password=hashed_password,
+        role=user_data.role or "customer",
         verification_token=verification_token,
         is_verified=False
     )
@@ -75,6 +80,32 @@ async def register(
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+
+    # If role is vendor, create a minimal vendor profile so they appear in listings
+    if new_user.role == "vendor":
+        base_shop_name = f"{new_user.name}'s Shop"
+        base_slug = slugify(base_shop_name)
+        
+        # Ensure slug uniqueness
+        unique_slug = base_slug
+        counter = 1
+        while True:
+            existing = await db.execute(select(Vendor).where(Vendor.slug == unique_slug))
+            if not existing.scalar_one_or_none():
+                break
+            unique_slug = f"{base_slug}-{counter}"
+            counter += 1
+            
+        new_vendor = Vendor(
+            user_id=new_user.id,
+            shop_name=f"{new_user.name}'s Shop" if counter == 1 else f"{new_user.name}'s Shop {counter}",
+            slug=unique_slug,
+            is_active=True,
+            is_verified=False,
+            description=f"Professional laser cutting services by {new_user.name}"
+        )
+        db.add(new_vendor)
+        await db.commit()
 
     # Auto-link any previously-placed guest orders with this email to the new user
     try:

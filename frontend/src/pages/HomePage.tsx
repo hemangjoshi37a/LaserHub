@@ -12,9 +12,9 @@ import { KerfPreview } from '../components/KerfPreview';
 import { useAppStore } from '../store';
 import { useAuthStore } from '../store/authStore';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
-import { designApi, marketplaceApi, materialsApi, uploadApi, vendorApi, type DesignItem } from '../services';
+import { designApi, marketplaceApi, materialsApi, uploadApi, vendorApi, type DesignItem, type VendorProfile } from '../services';
 import { resolveMediaUrl } from '../services/api';
-import { PageHeader, Button, Card } from '../components/ui';
+import { PageHeader, Button, Card, Avatar, Badge } from '../components/ui';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
   CheckCircle,
@@ -25,6 +25,11 @@ import {
   Eye,
   ShoppingCart,
   Check,
+  Users,
+  Star,
+  MapPin,
+  Building2,
+  Zap,
 } from 'lucide-react';
 
 type StepDef = {
@@ -38,25 +43,36 @@ const STEPS: StepDef[] = [
   { num: 1, label: 'Upload', short: 'Upload', icon: Upload },
   { num: 2, label: 'Configure', short: 'Config', icon: Settings },
   { num: 3, label: 'Review', short: 'Review', icon: Eye },
-  { num: 4, label: 'Order', short: 'Order', icon: ShoppingCart },
+  { num: 4, label: 'Vendor', short: 'Vendor', icon: Users },
+  { num: 5, label: 'Order', short: 'Order', icon: ShoppingCart },
 ];
 
 const STEP_TITLES: Record<number, string> = {
   1: 'Upload — LaserHub',
   2: 'Configure — LaserHub',
   3: 'Review — LaserHub',
-  4: 'Order — LaserHub',
-  5: 'Order Placed — LaserHub',
+  4: 'Select Vendor — LaserHub',
+  5: 'Order — LaserHub',
+  6: 'Order Placed — LaserHub',
 };
 
 export const HomePage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState(1);
-  useDocumentTitle(STEP_TITLES[step] ?? 'Get a Custom Quote — LaserHub');
+  const qpStep = searchParams.get('step');
+  const [step, setStep] = useState(qpStep ? Number(qpStep) : 1);
   const [designTitle, setDesignTitle] = useState('');
   const [designCategory, setDesignCategory] = useState('art');
   const [isSharing, setIsSharing] = useState(false);
   const [designShared, setDesignShared] = useState(false);
+  const [designTitleFromQuery, setDesignTitleFromQuery] = useState<string | null>(null);
+  const [vendorNameFromQuery, setVendorNameFromQuery] = useState<string | null>(null);
+
+  const stepLabel = STEP_TITLES[step]?.split(' — ')[0] || 'Quote';
+  const displayTitle = designTitleFromQuery
+    ? `${designTitleFromQuery} (${stepLabel}) — LaserHub`
+    : (STEP_TITLES[step] ?? 'Get a Custom Quote — LaserHub');
+
+  useDocumentTitle(displayTitle);
   const {
     uploadedFile,
     selectedMaterial,
@@ -66,6 +82,8 @@ export const HomePage: React.FC = () => {
     setFileAnalysis,
     setSelectedMaterial,
     setSelectedThickness,
+    selectedVendor,
+    setSelectedVendor,
   } = useAppStore();
   const { isAuthenticated } = useAuthStore();
 
@@ -76,8 +94,6 @@ export const HomePage: React.FC = () => {
   const qpThickness = searchParams.get('thickness');
   const qpFileIdDirect = searchParams.get('file_id');
 
-  const [designTitleFromQuery, setDesignTitleFromQuery] = useState<string | null>(null);
-  const [vendorNameFromQuery, setVendorNameFromQuery] = useState<string | null>(null);
   const [skipUploadReady, setSkipUploadReady] = useState(false);
 
   // Auto-load design file when design_id or file_id is in URL params
@@ -137,6 +153,15 @@ export const HomePage: React.FC = () => {
     }
   }, [qpDesignId, qpFileIdDirect, uploadedFile, setUploadedFile, setFileAnalysis]);
 
+  useEffect(() => {
+    if (qpStep) {
+      const s = Number(qpStep);
+      if (!isNaN(s) && s !== step) {
+        setStep(s);
+      }
+    }
+  }, [qpStep, step]);
+
   // Pre-select material + thickness from query params
   useEffect(() => {
     if (!qpMaterial && !qpThickness) return;
@@ -163,25 +188,55 @@ export const HomePage: React.FC = () => {
     })();
   }, [qpMaterial, qpThickness, selectedMaterial, selectedThickness, setSelectedMaterial, setSelectedThickness]);
 
-  // Resolve vendor name (for banner)
+  // Resolve vendor name + select vendor in store
   useEffect(() => {
     if (!qpVendor) return;
     (async () => {
       try {
         const profile = await vendorApi.getVendor(qpVendor);
-        if (profile?.shop_name) setVendorNameFromQuery(profile.shop_name);
+        if (profile) {
+          if (profile.shop_name) setVendorNameFromQuery(profile.shop_name);
+          // Pre-select the vendor in the store so Step 4 and Step 5 see it
+          setSelectedVendor(profile);
+        }
       } catch {
         /* show slug as fallback */
       }
     })();
-  }, [qpVendor]);
+  }, [qpVendor, setSelectedVendor]);
 
+  // Auto-advance logic: only triggers if we are on the immediate previous step
+  // and the user hasn't explicitly requested a different step via URL.
+  
   // Auto-advance to Configure step when we arrived from design detail
   useEffect(() => {
-    if (skipUploadReady && step === 1) {
+    if (skipUploadReady && step === 1 && !qpStep) {
       setStep(2);
     }
-  }, [skipUploadReady, step]);
+  }, [skipUploadReady, step, qpStep]);
+
+  // Auto-advance to Review step when material + thickness are also pre-selected
+  useEffect(() => {
+    if (skipUploadReady && selectedMaterial && selectedThickness && step === 2 && !qpStep) {
+      // Small delay to ensure stores are synced
+      const timer = setTimeout(() => setStep(3), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [skipUploadReady, selectedMaterial, selectedThickness, step, qpStep]);
+
+  // Auto-advance to Vendor Selection step when cost is calculated (only if pre-selected from design)
+  useEffect(() => {
+    if (skipUploadReady && qpMaterial && qpThickness && costEstimate && step === 3 && !qpStep) {
+      setStep(4);
+    }
+  }, [skipUploadReady, qpMaterial, qpThickness, costEstimate, step, qpStep]);
+
+  // Auto-advance to Order step if a vendor was pre-selected in URL
+  useEffect(() => {
+    if (qpVendor && step === 4 && !qpStep) {
+      setStep(5);
+    }
+  }, [qpVendor, step, qpStep]);
 
   const handleCalculateComplete = () => {
     // CostDisplay already handles auto-calculation; nothing to do here
@@ -189,7 +244,7 @@ export const HomePage: React.FC = () => {
   };
 
   const handleOrderSuccess = () => {
-    setStep(5);
+    setStep(6);
   };
 
   const handleShareDesign = async () => {
@@ -219,6 +274,7 @@ export const HomePage: React.FC = () => {
     if (target === 2) return !!uploadedFile;
     if (target === 3) return !!uploadedFile && !!selectedMaterial && !!selectedThickness;
     if (target === 4) return !!costEstimate;
+    if (target === 5) return !!costEstimate; // Could add !!selectedVendor check if we want to force it
     return false;
   };
 
@@ -229,8 +285,12 @@ export const HomePage: React.FC = () => {
   return (
     <div className="upl-page">
       <PageHeader
-        title="Get a Custom Quote"
-        subtitle="Upload your design and get instant pricing from multiple vendors."
+        title={designTitleFromQuery ? `Ordering: ${designTitleFromQuery}` : "Get a Custom Quote"}
+        subtitle={
+          vendorNameFromQuery
+            ? `Finalizing your order with ${vendorNameFromQuery}`
+            : "Upload your design and get instant pricing from multiple vendors."
+        }
       />
 
       {/* Sticky stepper */}
@@ -339,10 +399,17 @@ export const HomePage: React.FC = () => {
         )}
 
         {step === 4 && (
-          <Step4Order onBack={() => setStep(3)} onSuccess={handleOrderSuccess} />
+          <Step4VendorSelection
+            onBack={() => setStep(3)}
+            onNext={() => setStep(5)}
+          />
+        )}
+        
+        {step === 5 && (
+          <Step5Order onBack={() => setStep(4)} onSuccess={handleOrderSuccess} />
         )}
 
-        {step === 5 && (
+        {step === 6 && (
           <div className="upl-success animate-in">
             <Card>
               <CheckCircle size={56} className="upl-success-icon" />
@@ -570,10 +637,105 @@ const Step3Review: React.FC<{
 };
 
 // ───────────────────────────────────────────────────────────────────────────
-// Step 4 — Order (form + summary side-by-side, payment widget inline)
+// Step 4 — Vendor Selection (Admin vs Vendor list)
 // ───────────────────────────────────────────────────────────────────────────
 
-const Step4Order: React.FC<{ onBack: () => void; onSuccess: () => void }> = ({
+const Step4VendorSelection: React.FC<{
+  onBack: () => void;
+  onNext: () => void;
+}> = ({ onBack, onNext }) => {
+  const { selectedVendor, setSelectedVendor } = useAppStore();
+  const [vendors, setVendors] = useState<VendorProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await vendorApi.listVendors();
+        setVendors(list);
+      } catch (err) {
+        toast.error('Could not load vendor list');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleSelect = (v: VendorProfile | null) => {
+    setSelectedVendor(v);
+    onNext();
+  };
+
+  return (
+    <div className="upl-step-content animate-in">
+      <div className="vendor-selection-grid">
+        {/* Admin Option */}
+        <div 
+          className={`vendor-sel-card admin-card ${selectedVendor === null ? 'active' : ''}`}
+          onClick={() => handleSelect(null)}
+        >
+          <div className="vendor-sel-icon">
+            <Building2 size={24} />
+          </div>
+          <div className="vendor-sel-info">
+            <h4>LaserHub Official</h4>
+            <p>Direct fulfillment. We pick the best local shop for your order.</p>
+            <div className="vendor-sel-badges">
+              <Badge variant="success"><Zap size={10} /> Fast Track</Badge>
+              <Badge variant="secondary">Official</Badge>
+            </div>
+          </div>
+          <div className="vendor-sel-action">
+            <Button variant={selectedVendor === null ? 'primary' : 'ghost'} size="sm">
+              {selectedVendor === null ? 'Selected' : 'Select'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="vendor-divider">
+          <span>Or choose a specific shop</span>
+        </div>
+
+        {loading ? (
+          <div className="vendor-sel-loading">Loading vendors...</div>
+        ) : (
+          <div className="vendor-sel-list">
+            {vendors.map((v) => (
+              <div 
+                key={v.id} 
+                className={`vendor-sel-card ${selectedVendor?.id === v.id ? 'active' : ''}`}
+                onClick={() => handleSelect(v)}
+              >
+                <Avatar src={resolveMediaUrl(v.logo_url)} name={v.shop_name} size={48} />
+                <div className="vendor-sel-info">
+                  <h4>{v.shop_name}</h4>
+                  <div className="vendor-sel-meta">
+                    <span className="rating"><Star size={12} fill="currentColor" /> {v.rating.toFixed(1)}</span>
+                    <span className="location"><MapPin size={12} /> {v.location || 'India'}</span>
+                  </div>
+                  <p className="vendor-sel-desc">{v.description || 'Verified LaserHub manufacturing partner.'}</p>
+                </div>
+                <div className="vendor-sel-action">
+                  <Button variant={selectedVendor?.id === v.id ? 'primary' : 'ghost'} size="sm">
+                    {selectedVendor?.id === v.id ? 'Selected' : 'Select'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="upl-step-actions">
+        <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>
+          Back
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const Step5Order: React.FC<{ onBack: () => void; onSuccess: () => void }> = ({
   onBack,
   onSuccess,
 }) => {

@@ -81,9 +81,32 @@ async def get_current_vendor(
 
     result = await db.execute(select(Vendor).where(Vendor.user_id == user.id))
     vendor = result.scalar_one_or_none()
+    
     if not vendor:
-        # Auto-create vendor profile if user is marked as vendor but profile missing? 
-        # No, they should go through registration.
+        # Auto-create a minimal vendor profile for admins so they can use vendor dashboard tools
+        # without manually going through the marketplace registration flow.
+        if user.is_admin or user.role == "super_admin":
+            shop_name = f"{user.name or 'Admin'} Shop"
+            slug = slugify(shop_name)
+            
+            # Ensure slug uniqueness
+            s_res = await db.execute(select(Vendor).where(Vendor.slug == slug))
+            if s_res.scalar_one_or_none():
+                slug = f"{slug}-{user.id}"
+                
+            vendor = Vendor(
+                user_id=user.id,
+                shop_name=shop_name,
+                slug=slug,
+                is_active=True,
+                is_verified=True,
+                description="Platform admin profile",
+            )
+            db.add(vendor)
+            await db.commit()
+            await db.refresh(vendor)
+            return vendor
+            
         raise HTTPException(status_code=403, detail="Vendor profile not initialized")
 
     return vendor

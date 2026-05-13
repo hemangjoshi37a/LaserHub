@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, File, X, CheckCircle, FileImage, FileCode, FileText as FileTextIcon } from 'lucide-react';
+import { Upload, File, X, CheckCircle, FileImage, FileCode, FileText as FileTextIcon, Image as ImageIcon } from 'lucide-react';
 import { useAppStore } from '../store';
 import { uploadApi } from '../services';
 import { API_URL } from '../services/api';
@@ -33,7 +33,11 @@ const ALLOWED_TYPES = {
   'image/emf': ['.emf'],
   'image/x-emf': ['.emf'],
   'application/x-emf': ['.emf'],
-  'application/octet-stream': ['.dxf', '.ai', '.eps', '.cdr', '.plt', '.hpgl', '.wmf', '.emf'],
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'application/x-dwg': ['.dwg'],
+  'image/vnd.dwg': ['.dwg'],
+  'application/octet-stream': ['.dxf', '.ai', '.eps', '.cdr', '.plt', '.hpgl', '.wmf', '.emf', '.png', '.jpg', '.jpeg', '.dwg'],
 };
 
 // Format-specific hints shown while uploading
@@ -48,6 +52,10 @@ function getFormatHint(filename: string): string {
     cdr:  'CorelDRAW file detected — estimating dimensions...',
     plt:  'PLT/HPGL file detected — parsing plotter data...',
     hpgl: 'PLT/HPGL file detected — parsing plotter data...',
+    png:  'Image detected — extracting dimensions...',
+    jpg:  'Image detected — extracting dimensions...',
+    jpeg: 'Image detected — extracting dimensions...',
+    dwg:  'DWG detected — preparing analysis...',
   };
   return hints[ext] ?? 'Processing file...';
 }
@@ -139,6 +147,8 @@ export const FileUpload: React.FC = () => {
                 <span className="upl-format-badge"><FileTextIcon size={12} /> PDF</span>
                 <span className="upl-format-badge"><FileImage size={12} /> EPS</span>
                 <span className="upl-format-badge"><FileImage size={12} /> CDR</span>
+                <span className="upl-format-badge"><ImageIcon size={12} /> PNG/JPG</span>
+                <span className="upl-format-badge"><FileCode size={12} /> DWG</span>
               </div>
             </>
           )}
