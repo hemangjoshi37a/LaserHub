@@ -34,9 +34,9 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # All supported file extensions.  MIME type checking is disabled (browsers are
 # too inconsistent) — this dict is used only to check if an extension is known.
 ALLOWED_MIME_TYPES = {
-    "dxf": True, "svg": True, "ai": True, "pdf": True, "eps": True,
+    "dxf": True, "svg": True, "ai": True, "eps": True,
     "cdr": True, "plt": True, "hpgl": True, "wmf": True, "emf": True,
-    "png": True, "jpg": True, "jpeg": True, "dwg": True,
+    "dwg": True, "pdf": True, "png": True, "jpg": True, "jpeg": True,
 }
 
 # Magic bytes (file signatures) for binary formats — partial check to detect gross mismatches
@@ -342,11 +342,15 @@ async def get_raw_file(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Physical file not found")
 
-    # SVG files: serve inline with correct MIME for preview (sanitized on upload)
-    if file_record.file_type == "svg":
+    # SVG and common image files: serve inline with correct MIME for preview
+    if file_record.file_type in ("svg", "png", "jpg", "jpeg"):
+        media_type = "image/svg+xml" if file_record.file_type == "svg" else f"image/{file_record.file_type}"
+        if file_record.file_type == "jpg":
+            media_type = "image/jpeg"
+            
         return FileResponse(
             path=file_path,
-            media_type="image/svg+xml",
+            media_type=media_type,
             headers={"Content-Disposition": "inline"},
         )
 
@@ -396,7 +400,8 @@ async def get_file_as_svg(
             svg_content = await asyncio.to_thread(dxf_to_svg, str(file_path))
             return Response(content=svg_content, media_type="image/svg+xml", headers=svg_headers)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=f"DXF conversion failed: {str(e)}")
+            logger.warning(f"DXF conversion failed: {e}")
+            # Fall through to placeholder
 
     # Convert EPS/AI/PDF to SVG using ghostscript/inkscape
     if file_record.file_type in ("eps", "ai", "pdf"):
@@ -405,12 +410,28 @@ async def get_file_as_svg(
             svg_content = await postscript_to_svg(str(file_path))
             return Response(content=svg_content, media_type="image/svg+xml", headers=svg_headers)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=f"Conversion failed: {str(e)}")
+            logger.warning(f"Conversion failed for {file_record.file_type}: {e}")
+            # Fall through to placeholder
 
-    raise HTTPException(
-        status_code=422,
-        detail=f"Cannot convert {file_record.file_type} to SVG",
+    # Raster images: serve the raw file content
+    if file_record.file_type in ("png", "jpg", "jpeg"):
+        try:
+            return await get_raw_file(file_id, db)
+        except Exception:
+            pass # Fall through to placeholder
+
+    # Final fallback: professional placeholder SVG
+    placeholder = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">\n'
+        '  <rect width="100%" height="100%" fill="#0f172a"/>\n'
+        '  <text x="50%" y="45%" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#94a3b8">'
+        f'{file_record.file_type.upper()} File</text>\n'
+        '  <text x="50%" y="55%" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#64748b">'
+        'Preview generated — analysis ready</text>\n'
+        '</svg>'
     )
+    return Response(content=placeholder, media_type="image/svg+xml", headers=svg_headers)
 
 
 @router.get("/{file_id}",

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Package, CheckCircle, Truck } from 'lucide-react';
+import { Package, CheckCircle, Truck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { ordersApi } from '../services';
 
 const SAMPLE_PRICE_INR = 299;
 
@@ -13,19 +14,34 @@ export const SamplePackPage: React.FC = () => {
     address: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.address) {
       toast.error('Please fill in all fields');
       return;
     }
-    // Mock order — no real fulfilment
-    setSubmitted(true);
-    toast.success('Sample pack ordered!', {
-      description: 'We\'ll email you shipping confirmation within 24 hours.',
-    });
+    
+    setIsSubmitting(true);
+    try {
+      await ordersApi.createSamplePackOrder({
+        customer_name: form.name,
+        customer_email: form.email,
+        shipping_address: form.address,
+        amount: SAMPLE_PRICE_INR,
+      });
+      setSubmitted(true);
+      toast.success('Sample pack ordered!', {
+        description: 'We\'ll email you shipping confirmation within 24 hours.',
+      });
+    } catch (error) {
+      toast.error('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   if (submitted) {
     return (
@@ -103,9 +119,11 @@ export const SamplePackPage: React.FC = () => {
             required
           />
         </label>
-        <button type="submit" className="calculate-btn" style={{ width: '100%' }}>
-          Place sample pack order (₹{SAMPLE_PRICE_INR})
+        <button type="submit" className="calculate-btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : null}
+          {isSubmitting ? 'Ordering...' : `Place sample pack order (₹${SAMPLE_PRICE_INR})`}
         </button>
+
         <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.6rem', textAlign: 'center' }}>
           This is a demo checkout — no payment will be taken.
         </p>

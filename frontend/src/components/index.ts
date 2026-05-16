@@ -1,4 +1,4 @@
-export { Navbar } from './Navbar';
+export { Navbar, NavUserMenu } from './Navbar';
 export { FileUpload } from './FileUpload';
 export { MaterialSelector } from './MaterialSelector';
 export { CostDisplay } from './CostDisplay';

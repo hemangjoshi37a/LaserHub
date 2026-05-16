@@ -11,13 +11,13 @@
   display: flex;
   height: calc(100vh - 60px);
   overflow: hidden;
-  background: var(--bg-secondary, #f7f8fa);
+  background: var(--bg-secondary);
 }
 .adm-sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: var(--bg-primary, #fff);
-  border-right: 1px solid var(--border-color, #e5e7eb);
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   /* own its own scroll, no longer sticky — the shell is the scroll container */
@@ -31,7 +31,7 @@
   align-items: center;
   gap: 12px;
   padding: 4px 8px 20px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--border-color);
   margin-bottom: 14px;
 }
 .adm-sidebar-logo {
@@ -69,10 +69,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1 1 auto;
-  min-height: 0;
-  /* Custom scrollbar styling so it matches the admin chrome */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color, #e5e7eb) transparent;
+  scrollbar-color: var(--border-color) transparent;
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -83,7 +80,7 @@
   gap: 12px;
   padding: 9px 12px;
   border-radius: 8px;
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 500;
@@ -95,7 +92,7 @@
   width: 100%;
 }
 .adm-nav-link:hover {
-  background: var(--bg-secondary, #f3f4f6);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 .adm-nav-link--active {
@@ -110,7 +107,7 @@
 }
 .adm-nav-divider {
   height: 1px;
-  background: var(--border-color, #e5e7eb);
+  background: var(--border-color);
   margin: 8px 12px;
 }
 .adm-nav-section-label {
@@ -118,7 +115,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
   padding: 4px 16px 2px;
   margin-top: 2px;
 }
@@ -159,12 +156,12 @@
 }
 .adm-main::-webkit-scrollbar-thumb,
 .adm-sidebar-nav::-webkit-scrollbar-thumb {
-  background: var(--border-color, #e5e7eb);
+  background: var(--border-color);
   border-radius: 4px;
 }
 .adm-main::-webkit-scrollbar-thumb:hover,
 .adm-sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary, #9ca3af);
+  background: var(--text-tertiary);
 }
 .adm-main::-webkit-scrollbar-track,
 .adm-sidebar-nav::-webkit-scrollbar-track {
@@ -218,8 +215,8 @@
   gap: 16px;
 }
 .adm-stat-card {
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 18px 20px;
   display: flex;
@@ -258,8 +255,8 @@
 
 /* Card */
 .adm-card {
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
@@ -316,8 +313,8 @@
   margin-bottom: 14px;
 }
 .adm-chip {
-  background: var(--bg-secondary, #f3f4f6);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 9999px;
   padding: 6px 14px;
   font-size: 0.8rem;
@@ -376,7 +373,7 @@
   color: var(--text-tertiary);
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary, #f9fafb);
+  background: var(--bg-secondary);
 }
 .adm-table tbody td {
   padding: 12px;
@@ -386,7 +383,7 @@
 }
 .adm-table tbody tr:last-child td { border-bottom: none; }
 .adm-row { cursor: default; transition: background 120ms ease; }
-.adm-row:hover { background: var(--bg-secondary, #f9fafb); }
+.adm-row:hover { background: var(--bg-secondary); }
 .adm-empty-row {
   text-align: center;
   padding: 28px !important;
@@ -430,7 +427,7 @@
   height: 52px;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--bg-secondary, #f3f4f6);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -474,7 +471,7 @@
 
 /* Configs expansion */
 .adm-configs {
-  background: var(--bg-secondary, #f9fafb);
+  background: var(--bg-secondary);
   border-radius: 8px;
   padding: 14px;
   margin: 6px 0;
@@ -526,13 +523,6 @@
 
 /* ---- Payment Settings integration ---- */
 .adm-main .ps-page { padding: 0; }
-
-/* Dark mode */
-.dark-mode .adm-shell { background: var(--bg-secondary); }
-.dark-mode .adm-sidebar,
-.dark-mode .adm-stat-card,
-.dark-mode .adm-card { background: var(--bg-primary); }
-.dark-mode .adm-chip { background: rgba(255,255,255,0.04); }
 
 /* Responsive */
 @media (max-width: 1024px) {

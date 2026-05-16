@@ -15,9 +15,10 @@ from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.api.auth import get_current_user
 from app.models import Material, Order, UploadedFile, User, VendorOrder, Vendor
-from app.schemas import OrderCreate, OrderResponse
+from app.schemas import OrderCreate, OrderResponse, SamplePackOrderRequest
 
 router = APIRouter()
+
 
 # Optional auth — orders can be placed as guest; if a JWT is present we link the user
 _optional_bearer = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -159,6 +160,103 @@ async def create_order(
         updated_at=order.updated_at,
         guest_tracking_token=order.guest_tracking_token,
     )
+
+
+@router.post("/sample-pack", response_model=OrderResponse)
+async def create_sample_pack_order(
+    order_data: SamplePackOrderRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a sample pack order.
+    Creates placeholder material/file if missing.
+    """
+    # 1. Ensure "Sample Pack" material exists
+    result = await db.execute(select(Material).where(Material.name == "Sample Pack"))
+    material = result.scalar_one_or_none()
+    if not material:
+        material = Material(
+            name="Sample Pack",
+            type="acrylic", # dummy
+            rate_per_cm2_mm=0,
+            available_thicknesses_raw="[3]",
+            description="Selection of material swatches",
+            is_active=True
+        )
+        db.add(material)
+        await db.flush()
+
+    # 2. Ensure placeholder "Sample Pack" file exists
+    result = await db.execute(select(UploadedFile).where(UploadedFile.filename == "sample_pack_placeholder"))
+    uploaded_file = result.scalar_one_or_none()
+    if not uploaded_file:
+        uploaded_file = UploadedFile(
+            file_id="sample-pack-id",
+            filename="sample_pack_placeholder",
+            file_path="n/a",
+            file_size=0,
+            file_type="placeholder",
+            width_mm=0,
+            height_mm=0,
+            area_cm2=0,
+            cut_length_mm=0,
+        )
+        db.add(uploaded_file)
+        await db.flush()
+
+    # 3. Create Order
+    order = Order(
+        order_number=generate_order_number(),
+        user_id=current_user.id if current_user else None,
+        file_id=uploaded_file.id,
+        material_id=material.id,
+        thickness_mm=3.0,
+        quantity=1,
+        material_cost=order_data.amount,
+        laser_time_cost=0,
+        energy_cost=0,
+        setup_fee=0,
+        total_amount=order_data.amount,
+        customer_email=order_data.customer_email,
+        customer_name=order_data.customer_name,
+        shipping_address=order_data.shipping_address,
+        status="paid", # Samples are usually auto-paid/demo-paid in this context
+        payment_status="paid",
+    )
+
+    db.add(order)
+    await db.commit()
+    await db.refresh(order)
+
+    # 4. Notify (Mock)
+    if current_user:
+        from app.api.notifications import send_push_notification_bg
+        background_tasks.add_task(
+            send_push_notification_bg,
+            current_user.id,
+            "Sample Pack Ordered",
+            f"Your sample pack order {order.order_number} has been received!",
+            "/dashboard",
+        )
+
+    return OrderResponse(
+        id=order.id,
+        order_number=order.order_number,
+        file_id=uploaded_file.file_id,
+        material_name=material.name,
+        thickness_mm=order.thickness_mm,
+        quantity=order.quantity,
+        total_amount=order.total_amount,
+        status=order.status,
+        customer_email=order.customer_email,
+        customer_name=order.customer_name,
+        shipping_address=order.shipping_address,
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
+
 
 
 # ---------------------------------------------------------------------------

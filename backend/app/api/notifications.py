@@ -7,12 +7,13 @@ to users when order events occur.
 
 import json
 import logging
-from typing import Any, Dict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -237,3 +238,54 @@ async def unsubscribe(
         await db.commit()
 
     return {"detail": "Unsubscribed successfully"}
+
+
+class NotificationResponse(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+    link: Optional[str] = None
+    is_read: bool
+    created_at: datetime
+
+
+@router.get("/", response_model=List[NotificationResponse])
+async def list_notifications(
+    current_user: User = Depends(_get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 20,
+):
+    """List recent notifications for the authenticated user."""
+    from app.models import Notification
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.user_id == current_user.id)
+        .order_by(desc(Notification.created_at))
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
+@router.put("/{notification_id}/read")
+async def mark_as_read(
+    notification_id: int,
+    current_user: User = Depends(_get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark a specific notification as read."""
+    from app.models import Notification
+    result = await db.execute(
+        select(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id
+        )
+    )
+    notification = result.scalar_one_or_none()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    notification.is_read = True
+    await db.commit()
+    return {"status": "success"}
+

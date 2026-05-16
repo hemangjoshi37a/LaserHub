@@ -1,0 +1,537 @@
+/* ==========================================================================
+   GLOBAL RESPONSIVE OVERRIDES
+   Applied last so they take priority over component-level styles.
+   Fixes: white-space at page bottoms, broken grids, navbar detachment,
+          dark-theme light-background leaks.
+   ========================================================================== */
+
+/* ── Page shell: ensure every public page fills the viewport ── */
+.app > .main > .animate-in {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Pages that use min-height: 60vh need upgrading */
+.about-page,
+.contact-page,
+.vendors-page,
+.browse-page,
+.samples-page,
+.material-wizard-page,
+.material-compare-page,
+.verify-email-page,
+.forgot-password-page,
+.vendor-register-page,
+.buyer-dashboard,
+.profile-page,
+.order-tracking-page,
+.track-order-page,
+.public-quote-page,
+.marketplace-page {
+  min-height: calc(100dvh - 64px);
+  flex: 1;
+}
+
+/* Auth pages: use dynamic viewport */
+.auth-page,
+.lh-auth-shell {
+  min-height: calc(100dvh - 64px);
+}
+
+/* ── Dashboard root: ensure no white gaps ── */
+.app-dashboard-root {
+  min-height: 100dvh;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Dark theme fixes for light-bg components ── */
+
+/* Vendor storefront inner nav — was using white background */
+.bv-vendor-nav {
+  top: 64px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Vendor profile card border fix */
+.bv-vendor-profile-card {
+  border-color: var(--border-color) !important;
+}
+
+/* Vendor profile hero — was using light grey */
+.bv-vendor-hero-banner {
+  background: var(--bg-tertiary) !important;
+}
+
+.bv-vendor-profile {
+  background: var(--bg-primary) !important;
+}
+
+/* ── Marketplace: all responsive grid fixes ── */
+
+/* Category grid: 8 → 6 → 4 → 3 */
+@media (max-width: 1024px) {
+  .mp-categories {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .mp-categories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .mp-section {
+    padding: 1rem 0.875rem;
+  }
+
+  .mp-hero {
+    padding: 2rem 1rem 2rem;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .mp-hero h1 {
+    font-size: 1.4rem;
+  }
+
+  .mp-search-bar {
+    max-width: 100%;
+  }
+
+  /* Action cards: 3 → 1 on tablet */
+  .mp-actions {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+    margin: -1rem auto 0;
+  }
+
+  /* Vendor grid: 3 → 2 */
+  .mp-vendor-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Design grid: 3 → 2 */
+  .mp-design-grid.browse-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Listings grid stays auto-fill */
+  .mp-listings-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .mp-hero-stats {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .mp-categories {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .mp-vendor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-design-grid,
+  .mp-design-grid.browse-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-listings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mp-cta {
+    margin: 1rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .mp-hero {
+    border-radius: 0 0 12px 12px;
+  }
+
+  .mp-hero h1 {
+    font-size: 1.25rem;
+  }
+
+  .mp-hero > .mp-hero-content > p {
+    font-size: 0.8rem;
+  }
+
+  .mp-hero-stats {
+    font-size: 0.7rem;
+    gap: 0.5rem;
+  }
+
+  .mp-search-bar {
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+/* ── About & Contact pages: responsive grids ── */
+@media (max-width: 768px) {
+  .about-features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .about-hero-title {
+    font-size: 1.9rem;
+  }
+
+  .contact-hero-title {
+    font-size: 1.9rem;
+  }
+
+  .about-body,
+  .contact-body {
+    padding: 2rem 1rem 3rem;
+  }
+}
+
+/* ── Vendor Profile page ── */
+@media (max-width: 768px) {
+  .bv-vendor-content {
+    grid-template-columns: 1fr;
+  }
+
+  .bv-vendor-profile-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.5rem 1rem;
+  }
+
+  .bv-vendor-profile-logo {
+    margin-top: -50px;
+  }
+
+  .bv-vendor-profile-title {
+    justify-content: center;
+  }
+
+  .bv-vendor-profile-meta {
+    justify-content: center;
+  }
+
+  .bv-vendor-profile-actions {
+    justify-content: center;
+  }
+}
+
+/* ── Public buyer / design detail ── */
+@media (max-width: 768px) {
+  .public-design-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .public-page {
+    padding: 16px 16px 48px;
+  }
+}
+
+/* ── Policy / legal pages ── */
+.policy-content,
+.privacy-page,
+.terms-page,
+.refund-page {
+  min-height: calc(100dvh - 64px);
+}
+
+@media (max-width: 768px) {
+  .policy-content {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* ── Specifications grid ── */
+@media (max-width: 480px) {
+  .specifications {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Upload wizard ── */
+@media (max-width: 640px) {
+  .steps-indicator {
+    gap: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .step-label-full {
+    display: none;
+  }
+
+  .step-label-short {
+    display: block;
+  }
+
+  .step-connector {
+    width: 16px;
+  }
+}
+
+/* ── Footer ── */
+@media (max-width: 640px) {
+  .footer-links {
+    gap: 0.75rem;
+  }
+
+  .footer {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* ── Hero section responsive ── */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* ── General: prevent any element from overflowing horizontally ── */
+.app,
+.main,
+.animate-in {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ── Smooth page transitions ── */
+.animate-in {
+  animation: page-enter 0.22s ease-out;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Skip link accessibility ── */
+.skip-link {
+  position: absolute;
+  top: -9999px;
+  left: 1rem;
+  background: var(--accent-color);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  z-index: 9999;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── Scrollbar polish for webkit ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ── Selection color ── */
+::selection {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--text-primary);
+}
+
+/* ── Focus visible improvements ── */
+:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* ── Form inputs: better tap targets on mobile ── */
+@media (max-width: 768px) {
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    min-height: 44px;
+  }
+
+  .lh-field-input input {
+    font-size: 16px !important;
+    height: 48px !important;
+  }
+}
+
+/* ── Marketplace hero content: ensure vertical centering ── */
+.mp-hero-content {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* ── Card hover effects: GPU compositing hint ── */
+.mp-design-card-wrapper,
+.mp-listing-card,
+.mp-vendor-card,
+.mp-action-card,
+.about-feature-card,
+.contact-card,
+.mp-category-card {
+  will-change: transform;
+  isolation: isolate;
+}
+
+/* ── Vendor pages: fix the sidebar drawer ── */
+@media (max-width: 768px) {
+  .vendors-hero {
+    padding: 2.5rem 1rem 2rem;
+  }
+}
+
+/* ── Typography: fluid sizing ── */
+@media (max-width: 768px) {
+  .about-hero-title,
+  .contact-hero-title {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+  }
+}
+
+/* ── Buyer dashboard ── */
+@media (max-width: 768px) {
+  .buyer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+/* ── Sample pack page ── */
+@media (max-width: 640px) {
+  .sample-pack-content {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* ── Public listing section headings ── */
+@media (max-width: 480px) {
+  .mp-section-header h2 {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Ensure no page has a white background leak ── */
+html {
+  background-color: #0f172a;
+}
+
+/* ── public-buyer.css dark overrides: these components had hard-coded #fff backgrounds ── */
+.public-listing-card,
+.public-vendor-card,
+.public-category-card,
+.bv-vendor-hero,
+.bv-material-card,
+.bv-review-card,
+.bv-about-side,
+.bv-reviews-summary,
+.public-specs-card,
+.ui-card {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.public-category-chip {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-secondary) !important;
+}
+
+.public-category-chip.active {
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: white !important;
+}
+
+.public-tag-chip {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+}
+
+.public-vendor-filters select {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.public-listings-table th {
+  background: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.public-listings-table th,
+.public-listings-table td {
+  border-color: var(--border-color) !important;
+}
+
+.public-listings-table tr:hover td {
+  background: var(--bg-tertiary) !important;
+}
+
+.bv-tab-count {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+}
+
+.bv-tab {
+  color: var(--text-secondary) !important;
+}
+
+.bv-tab:hover {
+  color: var(--text-primary) !important;
+}
+
+.bv-tab.active {
+  color: var(--accent-color) !important;
+  border-bottom-color: var(--accent-color) !important;
+}
+
+/* Google login button doesn't need to be dark, keep as-is */
+
+/* ── Google Sign-in btn: add border for dark bg visibility ── */
+.lh-auth-card .google-login-btn,
+button[aria-label*="Sign in with Google"] {
+  border: 1px solid var(--border-color) !important;
+}
+

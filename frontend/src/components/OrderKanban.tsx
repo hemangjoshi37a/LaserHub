@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Package, AlertTriangle, X, Clock, User, Box, Loader2 } from 'lucide-react';
-import { adminApi, KanbanCard } from '../services';
+import { adminApi, vendorApi, KanbanCard } from '../services';
 import { toast } from 'sonner';
 import { formatPrice, useCurrencyStore } from '../store/currencyStore';
 
@@ -34,7 +34,11 @@ function isUrgent(card: KanbanCard): boolean {
   return deadline - Date.now() < 2 * 24 * 60 * 60 * 1000;
 }
 
-export const OrderKanban: React.FC = () => {
+interface OrderKanbanProps {
+  isVendorView?: boolean;
+}
+
+export const OrderKanban: React.FC<OrderKanbanProps> = ({ isVendorView = false }) => {
   const [columns, setColumns] = useState<Columns>({});
   const [loading, setLoading] = useState(true);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -44,14 +48,52 @@ export const OrderKanban: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await adminApi.getKanban();
-      setColumns(data);
-    } catch (err: any) {
-      toast.error("Couldn't load orders", { description: err?.response?.data?.detail });
+      if (isVendorView) {
+        // Vendor API returns a flat list, we need to group it by status
+        const orders: any[] = await vendorApi.getVendorOrders();
+        const grouped: Columns = {
+          pending: [],
+          accepted: [],
+          in_production: [],
+          shipped: [],
+          completed: [],
+          cancelled: [],
+        };
+
+        orders.forEach((o) => {
+          let bucket = o.status.toLowerCase();
+          if (bucket === 'paid') bucket = 'accepted';
+          if (!grouped[bucket]) bucket = 'pending';
+          
+          const card: KanbanCard = {
+            id: o.id,
+            order_number: o.order_number,
+            customer_name: o.customer_name,
+            customer_email: o.customer_email || '',
+            total_amount: o.vendor_cost || o.total_amount, // Use vendor cost for vendor view
+            material_name: o.material_name,
+            thickness_mm: o.thickness_mm,
+            quantity: o.quantity,
+            status: o.status,
+            deadline: o.estimated_completion || null,
+            notes: o.vendor_notes || o.notes,
+            created_at: o.created_at,
+          };
+          grouped[bucket].push(card);
+        });
+        setColumns(grouped);
+      } else {
+        const data = await adminApi.getKanban();
+        setColumns(data);
+      }
+    } catch (error: any) {
+      const detail = error.response?.data?.detail || error.message;
+      console.error('Failed to load orders:', detail);
+      toast.error(`Failed to load orders: ${detail}`);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isVendorView]);
 
   useEffect(() => { void load(); }, [load]);
 

@@ -249,6 +249,23 @@ export const uploadApi = {
   },
 };
 
+export const notificationsApi = {
+  getVapidPublicKey: async (): Promise<string> => {
+    const response = await api.get<{ public_key: string }>('/notifications/vapid-public-key');
+    return response.data.public_key;
+  },
+  subscribe: async (subscription: any): Promise<void> => {
+    await api.post('/notifications/subscribe', subscription);
+  },
+  list: async (): Promise<any[]> => {
+    const response = await api.get<any[]>('/notifications/');
+    return response.data;
+  },
+  markAsRead: async (id: number): Promise<void> => {
+    await api.put(`/notifications/${id}/read`);
+  },
+};
+
 export const materialsApi = {
   listMaterials: async (): Promise<Material[]> => {
     const response = await api.get<Material[]>('/materials/');
@@ -344,7 +361,17 @@ export const ordersApi = {
     const response = await api.get(`/orders/guest/${trackingToken}`);
     return response.data;
   },
+  createSamplePackOrder: async (data: {
+    customer_name: string;
+    customer_email: string;
+    shipping_address: string;
+    amount: number;
+  }): Promise<Order> => {
+    const response = await api.post<Order>('/orders/sample-pack', data);
+    return response.data;
+  },
 };
+
 
 // === Saved Addresses ===
 export interface SavedAddress {
@@ -838,6 +865,15 @@ export const vendorApi = {
     return response.data;
   },
 
+  updateVendorMaterial: async (vmId: number, data: any): Promise<VendorMaterialItem> => {
+    const response = await api.put<VendorMaterialItem>(`/vendors/materials/${vmId}`, data);
+    return response.data;
+  },
+
+  deleteVendorMaterial: async (vmId: number): Promise<void> => {
+    await api.delete(`/vendors/materials/${vmId}`);
+  },
+
   getVendorStats: async (): Promise<any> => {
     const response = await api.get('/vendors/dashboard/stats');
     return response.data;
@@ -879,7 +915,18 @@ export const vendorApi = {
     });
     return response.data;
   },
+  
+  getFinancialsSummary: async (): Promise<FinancialsSummary> => {
+    const response = await api.get<FinancialsSummary>('/vendors/dashboard/financials');
+    return response.data;
+  },
+  
+  getVendorAnalytics: async (): Promise<any> => {
+    const response = await api.get<any>('/vendors/dashboard/financials');
+    return response.data;
+  },
 };
+
 
 // === Design API ===
 

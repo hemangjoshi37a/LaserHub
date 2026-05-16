@@ -21,6 +21,7 @@ interface Vendor {
   total_orders: number;
   location: string;
   logo_url: string | null;
+  banner_url?: string | null;
   materials_count?: number;
   is_verified?: boolean;
   specialties?: string[];
@@ -30,22 +31,19 @@ const RatingStars: React.FC<{ rating: number }> = ({ rating }) => (
   <span className="vendor-rating-stars">
     {Array.from({ length: 5 }, (_, i) => {
       const filled = rating >= i + 1;
-      const halfFilled = !filled && rating >= i + 0.5;
       return (
         <Star
           key={i}
           size={12}
-          fill={filled ? 'currentColor' : halfFilled ? 'url(#half)' : 'none'}
-          strokeWidth={filled || halfFilled ? 0 : 1.5}
-          className={filled || halfFilled ? 'star-filled' : 'star-empty'}
+          fill={filled ? '#f59e0b' : 'none'}
+          stroke={filled ? '#f59e0b' : 'currentColor'}
+          strokeWidth={filled ? 0 : 1.5}
+          className={filled ? 'star-filled' : 'star-empty'}
         />
       );
     })}
-    <span className="vendor-rating-value">{(rating || 0).toFixed(1)}</span>
   </span>
 );
-
-// Removed isDemoVendor filter to show all registered vendors as requested by the user.
 
 export const VendorsPage: React.FC = () => {
   useDocumentTitle('Laser Cutting Vendors — LaserHub');
@@ -113,11 +111,11 @@ export const VendorsPage: React.FC = () => {
   return (
     <div className="vendors-page public-page">
       <PageHeader
-        title="Laser Cutting Vendors"
-        subtitle="Compare verified vendors by rating, location, and specialty."
+        title="The Vendor Marketplace"
+        subtitle="Discover verified laser cutting shops and precision workshops."
         breadcrumbs={[
           { label: 'Marketplace', to: '/' },
-          { label: 'Vendors' },
+          { label: 'Shops' },
         ]}
       />
 
@@ -126,7 +124,7 @@ export const VendorsPage: React.FC = () => {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search vendors by name or location..."
+            placeholder="Find a shop by name, city or specialty..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -135,9 +133,8 @@ export const VendorsPage: React.FC = () => {
           <select
             value={locationFilter}
             onChange={(e) => setLocationFilter(e.target.value)}
-            aria-label="Filter by location"
           >
-            <option value="">All locations</option>
+            <option value="">All Regions</option>
             {locations.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
@@ -145,20 +142,17 @@ export const VendorsPage: React.FC = () => {
           <select
             value={minRating}
             onChange={(e) => setMinRating(Number(e.target.value))}
-            aria-label="Minimum rating"
           >
-            <option value={0}>Any rating</option>
-            <option value={3}>3+ stars</option>
-            <option value={4}>4+ stars</option>
-            <option value={4.5}>4.5+ stars</option>
+            <option value={0}>Top Rated</option>
+            <option value={3}>3.0+ Stars</option>
+            <option value={4}>4.0+ Stars</option>
           </select>
           {specialties.length > 0 && (
             <select
               value={specialtyFilter}
               onChange={(e) => setSpecialtyFilter(e.target.value)}
-              aria-label="Filter by specialty"
             >
-              <option value="">All specialties</option>
+              <option value="">All Specialties</option>
               {specialties.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -168,73 +162,88 @@ export const VendorsPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="mp-vendor-grid public-vendor-grid" aria-busy="true" aria-label="Loading vendors">
+        <div className="mp-vendor-grid public-vendor-grid" aria-busy="true">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="mp-vendor-card public-vendor-card skeleton-card">
-              <Skeleton width="64px" height="64px" borderRadius="50%" />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <Skeleton height="1rem" width="60%" />
-                <Skeleton height="0.75rem" width="90%" />
-                <Skeleton height="0.75rem" width="50%" />
+            <div key={i} className="public-vendor-card skeleton-card">
+              <Skeleton height="100px" />
+              <div style={{ padding: '20px' }}>
+                <Skeleton height="1.2rem" width="60%" />
+                <Skeleton height="0.8rem" width="90%" style={{ marginTop: '1rem' }} />
+                <Skeleton height="0.8rem" width="40%" style={{ marginTop: '0.5rem' }} />
               </div>
             </div>
           ))}
         </div>
       ) : loadError ? (
-        <ErrorState message="Couldn't load vendors" onRetry={() => loadVendors()} />
+        <ErrorState message="Couldn't load shops" onRetry={() => loadVendors()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<SearchX size={40} />}
-          title="No vendors found"
-          description={
-            searchText || locationFilter || minRating || specialtyFilter
-              ? 'Try adjusting your filters.'
-              : 'No vendors available yet. Check back soon!'
-          }
-          action={
-            <button className="vendors-clear-search" onClick={clearFilters}>
-              Clear filters
-            </button>
-          }
+          title="No shops found"
+          description="Try adjusting your search or filters to find more vendors."
+          action={<button className="vendors-clear-search" onClick={clearFilters}>Clear Filters</button>}
         />
       ) : (
         <div className="mp-vendor-grid public-vendor-grid">
           {filtered.map((v) => (
-            <Link key={v.id} to={`/vendor/${v.slug}`} className="mp-vendor-card public-vendor-card">
-              <Avatar
-                src={v.logo_url}
-                name={v.shop_name}
-                size={64}
-                style={{
-                  width: 64,
-                  height: 64,
-                  fontSize: 24,
-                  background: gradientFor(v.id),
-                  color: '#fff',
-                }}
-              />
-              <div className="mp-vendor-info">
-                <div className="vendor-name-row">
-                  <h4>{v.shop_name}</h4>
+            <Link key={v.id} to={`/vendor/${v.slug}`} className="public-vendor-card">
+              <div className="vendor-card-banner">
+                {v.banner_url ? (
+                  <img src={v.banner_url} alt="" />
+                ) : (
+                  <div style={{ background: gradientFor(v.id), height: '100%' }} />
+                )}
+                <div className="vendor-card-logo-overlap">
+                  <Avatar
+                    src={v.logo_url}
+                    name={v.shop_name}
+                    size={56}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: 0,
+                      background: '#fff',
+                      fontSize: 20
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div className="vendor-card-content">
+                <div className="vendor-card-header">
+                  <div className="vendor-card-title">
+                    <h4>{v.shop_name}</h4>
+                  </div>
                   {v.is_verified && (
-                    <span className="vendor-verified-badge" title="Verified vendor">
-                      <BadgeCheck size={14} />
-                    </span>
+                    <BadgeCheck size={18} className="vendor-verified-badge" />
                   )}
                 </div>
-                {v.description && <p className="vendor-desc">{v.description}</p>}
-                <div className="mp-vendor-meta">
-                  <RatingStars rating={v.rating || 0} />
-                  <span>{v.total_orders || 0} orders</span>
-                  {v.location && <span><MapPin size={12} /> {v.location}</span>}
+
+                <div className="vendor-card-location">
+                  <MapPin size={12} />
+                  <span>{v.location || 'Global Shipping'}</span>
                 </div>
-                {v.specialties && v.specialties.length > 0 && (
-                  <div className="public-vendor-specialties">
-                    {v.specialties.slice(0, 4).map((s) => (
-                      <Badge key={s} variant="info">{s}</Badge>
-                    ))}
+
+                <p className="vendor-card-description">
+                  {v.description || 'Specialized in precision laser cutting and professional sheet metal fabrication.'}
+                </p>
+
+                <div className="vendor-card-tags">
+                  {(v.specialties || ['Precision', 'QuickShip']).slice(0, 3).map(s => (
+                    <span key={s} className="tag-badge">{s}</span>
+                  ))}
+                </div>
+
+                <div className="vendor-card-stats">
+                  <div className="stat-item">
+                    <Star size={14} fill="#f59e0b" stroke="#f59e0b" />
+                    <span>{(v.rating || 0).toFixed(1)}</span>
                   </div>
-                )}
+                  <div className="stat-item">
+                    <span className="stat-label">Orders:</span>
+                    <span>{v.total_orders || 0}</span>
+                  </div>
+                </div>
               </div>
             </Link>
           ))}

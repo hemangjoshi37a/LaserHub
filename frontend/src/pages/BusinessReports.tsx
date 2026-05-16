@@ -12,7 +12,8 @@ type Tab = 'analytics' | 'financials';
  * Tabs between sales/traffic analytics and revenue/tax/profit financials so
  * vendors have one "Reports" entry instead of two sibling pages.
  */
-export const BusinessReports: React.FC = () => {
+export const BusinessReports: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) => {
+
   useDocumentTitle('Business Reports - LaserHub');
   const [tab, setTab] = useState<Tab>('analytics');
 
@@ -49,9 +50,10 @@ export const BusinessReports: React.FC = () => {
       </div>
 
       <div className="mi-panel" role="tabpanel">
-        {tab === 'analytics' && <Analytics />}
-        {tab === 'financials' && <FinancialsDashboard />}
+        {tab === 'analytics' && <Analytics vendorMode={vendorMode} />}
+        {tab === 'financials' && <FinancialsDashboard vendorMode={vendorMode} />}
       </div>
+
     </div>
   );
 };

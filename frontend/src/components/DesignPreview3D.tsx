@@ -66,10 +66,12 @@ function SVGModel({
   url,
   thickness,
   color,
+  handleError,
 }: {
   url: string;
   thickness: number;
   color: string;
+  handleError: () => void;
 }) {
   const [shapes, setShapes] = useState<THREE.Shape[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,6 +112,7 @@ function SVGModel({
         if (!cancelled) {
           setShapes([]);
           setLoading(false);
+          handleError(); // Trigger 2D fallback on parse/fetch error
         }
       });
 
@@ -172,7 +175,10 @@ function SVGModel({
     );
   }
 
-  if (!mergedGeo || !transform) return null;
+  if (!mergedGeo || !transform) {
+    if (!loading) handleError();
+    return null;
+  }
 
   return (
     <>
@@ -280,6 +286,15 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
   const [use3D, setUse3D] = useState(true);
   const [error, setError] = useState(false);
 
+  const isImage = uploadedFile?.file_type && ['png', 'jpg', 'jpeg'].includes(uploadedFile.file_type);
+
+  // Automatically switch to 2D for images
+  useEffect(() => {
+    if (isImage && use3D) {
+      setUse3D(false);
+    }
+  }, [isImage]);
+
   const handleError = useCallback(() => setError(true), []);
 
   // Prop-driven first (standalone usage), fall back to Zustand (upload wizard)
@@ -323,12 +338,14 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
         )}
       </div>
       <div className="preview-controls">
+        {!isImage && (
+          <button
+            className={`preview-toggle ${use3D ? 'active' : ''}`}
+            onClick={() => { setUse3D(true); setError(false); }}
+          >3D</button>
+        )}
         <button
-          className={`preview-toggle ${use3D ? 'active' : ''}`}
-          onClick={() => { setUse3D(true); setError(false); }}
-        >3D</button>
-        <button
-          className={`preview-toggle ${!use3D ? 'active' : ''}`}
+          className={`preview-toggle ${!use3D || isImage ? 'active' : ''}`}
           onClick={() => setUse3D(false)}
         >2D</button>
       </div>
@@ -350,6 +367,7 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
       <div className="preview-canvas">
         <CanvasErrorBoundary onError={handleError}>
           <Canvas
+            key={fileId}
             frameloop="demand"
             dpr={[1, 2]}
             performance={{ min: 0.5 }}
@@ -365,7 +383,7 @@ export const DesignPreview3D: React.FC<DesignPreview3DProps> = ({
           >
             <SceneLighting />
             <Suspense fallback={null}>
-              <SVGModel url={previewUrl} thickness={thickness} color={color} />
+              <SVGModel url={previewUrl} thickness={thickness} color={color} handleError={handleError} />
             </Suspense>
             <Controls />
             <Grid

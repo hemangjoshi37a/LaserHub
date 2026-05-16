@@ -14,13 +14,13 @@ export type UserRole = 'customer' | 'vendor' | 'super_admin';
 
 export function isSuperAdmin(user: User | null | undefined): boolean {
   if (!user) return false;
-  return user.role === 'super_admin';
+  return user.role === 'super_admin' || user.role === 'admin' || user.is_admin === true;
 }
 
 export function isVendor(user: User | null | undefined): boolean {
   if (!user) return false;
-  // super_admin implicitly has vendor capability for gating purposes.
-  return user.role === 'vendor' || user.role === 'super_admin';
+  // admins implicitly have vendor capability for gating purposes.
+  return user.role === 'vendor' || isSuperAdmin(user);
 }
 
 /** Format a raw role string for display: "super_admin" -> "Super Admin" */

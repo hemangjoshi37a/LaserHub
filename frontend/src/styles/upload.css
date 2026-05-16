@@ -63,9 +63,9 @@
   box-shadow: 0 0 0 4px rgba(14,165,233,0.2);
 }
 .upl-step.done .upl-step-circle {
-  background: var(--color-success, #10b981);
-  border-color: var(--color-success, #10b981);
-  color: white;
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-primary-fg);
 }
 .upl-step-label { font-size: var(--text-sm); font-weight: 500; }
 .upl-step.active .upl-step-label { color: var(--text-primary); font-weight: 700; }
@@ -80,7 +80,7 @@
   margin: 15px var(--space-1) 0;
   transition: background var(--t-base);
 }
-.upl-step-line.done { background: var(--color-success, #10b981); }
+.upl-step-line.done { background: var(--color-success); }
 
 @media (max-width: 640px) {
   .upl-step { min-width: 56px; padding: var(--space-1) var(--space-2); }
@@ -232,7 +232,7 @@
   gap: var(--space-4);
   padding: var(--space-4);
   background: var(--bg-secondary);
-  border: 1px solid var(--color-success, #10b981);
+  border: 1px solid var(--color-success);
   border-radius: 12px;
 }
 .upl-file-thumb {
@@ -329,7 +329,7 @@
   justify-content: center;
   overflow: hidden;
 }
-.upl-design-thumb img { width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 4px; }
+.upl-design-thumb img { width: 100%; height: 100%; object-fit: contain; background: var(--bg-secondary); padding: 4px; }
 .upl-design-thumb-ph {
   font-size: var(--text-2xl);
   font-weight: 700;
@@ -351,7 +351,11 @@
   gap: var(--space-5);
   align-items: start;
 }
-.upl-review-preview { min-height: 420px; }
+.upl-review-preview { 
+  min-height: 420px; 
+  display: flex;
+  flex-direction: column;
+}
 .upl-review-cost { min-width: 0; }
 @media (max-width: 900px) {
   .upl-review-grid { grid-template-columns: 1fr; }

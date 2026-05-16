@@ -22,3 +22,4 @@ export * from './SuperAdminPage';
 export * from './MaterialWizardPage';
 export * from './MaterialComparePage';
 export * from './SamplePackPage';
+export * from './MaterialsInventory';

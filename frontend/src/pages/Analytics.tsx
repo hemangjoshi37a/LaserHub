@@ -1,12 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -19,7 +14,8 @@ import {
   Loader,
   BarChart2,
 } from 'lucide-react';
-import { adminApi, AnalyticsData } from '../services';
+import { adminApi, vendorApi } from '../services';
+
 import { toast } from 'sonner';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -36,27 +32,48 @@ const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
   { key: 'all', label: 'All time', days: null },
 ];
 
-export const Analytics: React.FC = () => {
-  useDocumentTitle('Analytics — LaserHub');
-  const [data, setData] = useState<AnalyticsData | null>(null);
+export const Analytics: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) => {
+  useDocumentTitle(vendorMode ? 'Shop Analytics — LaserHub' : 'Analytics — LaserHub');
+  const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>('30d');
   const { currency } = useCurrencyStore();
 
   useEffect(() => {
     loadAnalytics();
-  }, []);
+  }, [vendorMode]);
 
   const loadAnalytics = async () => {
+    setLoading(true);
     try {
-      const result = await adminApi.getAnalytics();
-      setData(result);
+      if (vendorMode) {
+        const result = await vendorApi.getVendorAnalytics();
+        // Map vendor analytics structure to match AnalyticsData partially
+        const mappedData = {
+          sales_over_time: result.revenue_timeline,
+          popular_materials: result.popular_materials.map((m: any) => ({
+            material_name: m.name,
+            count: m.count,
+            revenue: 0
+          })),
+          top_customers: result.top_customers,
+          total_orders: result.orders_count.total,
+          total_revenue: result.revenue.year, // Using year revenue as a fallback for total
+          average_order_value: result.avg_order_value
+        };
+
+        setData(mappedData);
+      } else {
+        const result = await adminApi.getAnalytics();
+        setData(result);
+      }
     } catch (error) {
       toast.error('Failed to load analytics data');
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleExport = async () => {
     try {
@@ -165,7 +182,7 @@ export const Analytics: React.FC = () => {
                   paddingAngle={4}
                   label={({ material_name, percent }: any) => `${material_name} ${(percent * 100).toFixed(0)}%`}
                 >
-                  {data?.popular_materials.map((_, index) => (
+                  {data?.popular_materials.map((_: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -211,7 +228,7 @@ export const Analytics: React.FC = () => {
                 {(data?.top_customers || []).length === 0 && (
                   <tr><td colSpan={3} className="adm-empty-row">No customer data yet.</td></tr>
                 )}
-                {data?.top_customers.map((customer, idx) => (
+                {data?.top_customers.map((customer: any, idx: number) => (
                   <tr key={idx}>
                     <td>
                       <div className="adm-cell-bold">{customer.name || '—'}</div>
@@ -241,7 +258,7 @@ export const Analytics: React.FC = () => {
                 {(data?.popular_materials || []).length === 0 && (
                   <tr><td colSpan={3} className="adm-empty-row">No material data yet.</td></tr>
                 )}
-                {data?.popular_materials.map((material, idx) => (
+                {data?.popular_materials.map((material: any, idx: number) => (
                   <tr key={idx}>
                     <td className="adm-cell-bold">{material.material_name}</td>
                     <td className="adm-cell-medium">{material.count}</td>

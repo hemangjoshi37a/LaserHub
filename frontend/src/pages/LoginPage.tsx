@@ -52,12 +52,33 @@ export const LoginPage: React.FC = () => {
     setFormError('');
     try {
       await login(email, password);
+      const user = useAuthStore.getState().user;
       toast.success('Welcome back');
-      navigate('/');
-    } catch {
+      
+      if (user?.role === 'vendor') {
+        navigate('/vendor/dashboard');
+      } else if (user?.role === 'super_admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error) {
       setFormError('Invalid email or password');
       setShakeForm(true);
       setTimeout(() => setShakeForm(false), 550);
+    }
+  };
+
+  const handleGoogleSuccess = (data: { access_token: string; user: any }) => {
+    localStorage.setItem('user_token', data.access_token);
+    setUser(data.user);
+    
+    if (data.user?.role === 'vendor') {
+      navigate('/vendor/dashboard');
+    } else if (data.user?.role === 'super_admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -208,13 +229,7 @@ export const LoginPage: React.FC = () => {
             <span>or continue with</span>
           </div>
 
-          <GoogleLogin
-            onSuccess={(data) => {
-              localStorage.setItem('user_token', data.access_token);
-              setUser(data.user);
-              navigate('/');
-            }}
-          />
+          <GoogleLogin onSuccess={handleGoogleSuccess} />
 
           <p className="lh-auth-footer">
             New to LaserHub? <Link to="/register">Create an account</Link>

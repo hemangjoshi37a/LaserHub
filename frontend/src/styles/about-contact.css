@@ -1,6 +1,8 @@
 /* ── About Us Page ── */
 .about-page {
-  min-height: 60vh;
+  min-height: calc(100dvh - 64px);
+  display: flex;
+  flex-direction: column;
 }
 
 .about-hero {
@@ -307,7 +309,9 @@
 
 /* ── Contact Us Page ── */
 .contact-page {
-  min-height: 60vh;
+  min-height: calc(100dvh - 64px);
+  display: flex;
+  flex-direction: column;
 }
 
 .contact-hero {

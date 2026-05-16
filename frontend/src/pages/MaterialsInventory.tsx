@@ -3,6 +3,9 @@ import { Layers, Boxes } from 'lucide-react';
 import { MaterialManager } from '../components/MaterialManager';
 import { Inventory } from './Inventory';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useAuthStore } from '../store/authStore';
+import { isVendor } from '../utils/roles';
+import { VendorCatalogManager } from '../components/VendorCatalogManager';
 
 type Tab = 'materials' | 'inventory';
 
@@ -15,7 +18,9 @@ type Tab = 'materials' | 'inventory';
  */
 export const MaterialsInventory: React.FC = () => {
   useDocumentTitle('Materials & Inventory - LaserHub');
+  const { user } = useAuthStore();
   const [tab, setTab] = useState<Tab>('materials');
+  const isVendorUser = user && isVendor(user);
 
   return (
     <div className="mi-page">
@@ -50,7 +55,7 @@ export const MaterialsInventory: React.FC = () => {
       </div>
 
       <div className="mi-panel" role="tabpanel">
-        {tab === 'materials' && <MaterialManager />}
+        {tab === 'materials' && (isVendorUser ? <VendorCatalogManager /> : <MaterialManager />)}
         {tab === 'inventory' && <Inventory />}
       </div>
     </div>

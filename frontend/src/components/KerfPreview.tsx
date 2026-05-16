@@ -14,6 +14,9 @@ export const KerfPreview: React.FC = () => {
   const [show, setShow] = useState(false);
 
   if (!uploadedFile) return null;
+  const isImage = ['png', 'jpg', 'jpeg'].includes(uploadedFile.file_type);
+  if (isImage) return null;
+
   const kerf = getKerfForMaterial(selectedMaterial?.type);
   const url = `${API_URL}/upload/${uploadedFile.file_id}/svg`;
 
@@ -46,14 +49,15 @@ export const KerfPreview: React.FC = () => {
             overflow: 'hidden',
           }}
         >
-          <object
-            data={url}
-            type="image/svg+xml"
+          <img
+            src={url}
+            alt="Kerf Preview"
             style={{
               width: '100%',
               height: 240,
               filter: 'invert(1) hue-rotate(180deg)',
               pointerEvents: 'none',
+              objectFit: 'contain',
             }}
           />
           {/* Red kerf line overlay — purely decorative; demonstrates cut path */}

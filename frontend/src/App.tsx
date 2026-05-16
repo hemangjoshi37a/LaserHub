@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import type { FallbackProps } from 'react-error-boundary';
@@ -25,11 +25,14 @@ import { TrackOrderPage } from './pages/TrackOrderPage';
 import { MaterialWizardPage } from './pages/MaterialWizardPage';
 import { MaterialComparePage } from './pages/MaterialComparePage';
 import { SamplePackPage } from './pages/SamplePackPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { BuyerDashboard } from './pages/BuyerDashboard';
 import { useAuthStore } from './store/authStore';
-import { isSuperAdmin, isVendor } from './utils/roles';
 import { useCurrencyStore } from './store/currencyStore';
 import { Navbar, NotificationPrompt } from './components';
-import { useEscapeKey } from './hooks/useEscapeKey';
 import { Toaster } from 'sonner';
 import { Github } from 'lucide-react';
 import './App.css';
@@ -50,12 +53,39 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function AppContent() {
   const { checkAuth } = useAuthStore();
   const { detect: detectCurrency } = useCurrencyStore();
+  const location = useLocation();
 
   // Restore auth state and detect currency on mount
   useEffect(() => {
     checkAuth();
     detectCurrency();
   }, [checkAuth, detectCurrency]);
+
+
+  // We use the sidebar layout for sub-pages of dashboard, admin pages, and vendor dashboard.
+  // The root /dashboard page for customers now uses the standard landing layout.
+  const isDashboardLayout = (location.pathname.startsWith('/dashboard/') && location.pathname !== '/dashboard') || 
+                             location.pathname.startsWith('/admin') || 
+                             location.pathname.startsWith('/vendor/dashboard');
+
+  if (isDashboardLayout) {
+    return (
+      <div className="app-dashboard-root">
+        <NotificationPrompt />
+        <ErrorBoundary
+          FallbackComponent={ErrorFallback as unknown as React.ComponentType<FallbackProps>}
+          onReset={() => window.location.assign('/')}
+        >
+          <Routes>
+            <Route path="/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/admin/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/vendor/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          </Routes>
+        </ErrorBoundary>
+        <Toaster position="top-right" richColors closeButton duration={2000} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -69,31 +99,36 @@ function AppContent() {
           FallbackComponent={ErrorFallback as unknown as React.ComponentType<FallbackProps>}
           onReset={() => window.location.assign('/')}
         >
-          <Routes>
-            <Route path="/" element={<MarketplacePage />} />
-            <Route path="/upload" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-            <Route path="/browse" element={<BrowseDesignsPage />} />
-            <Route path="/vendors" element={<VendorsPage />} />
-            <Route path="/vendor/register" element={<VendorRegisterPage />} />
-            <Route path="/vendor/:slug" element={<VendorProfilePage />} />
-            <Route path="/design/:id" element={<DesignDetailPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-            <Route path="/admin/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-            <Route path="/vendor/dashboard/*" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-            <Route path="/privacy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms" element={<TermsOfServicePage />} />
-            <Route path="/refund-policy" element={<RefundPolicyPage />} />
-            <Route path="/about" element={<AboutUsPage />} />
-            <Route path="/contact" element={<ContactUsPage />} />
-            <Route path="/track/:token" element={<TrackOrderPage />} />
-            <Route path="/tracking/:identifier" element={<OrderTrackingPage />} />
-            <Route path="/q/:quote_number" element={<PublicQuotePage />} />
-            <Route path="/material-wizard" element={<MaterialWizardPage />} />
-            <Route path="/materials/compare" element={<MaterialComparePage />} />
-            <Route path="/samples" element={<SamplePackPage />} />
-          </Routes>
+          <div className="animate-in">
+            <Routes>
+              <Route path="/" element={<MarketplacePage />} />
+              <Route path="/dashboard" element={<ProtectedRoute><BuyerDashboard /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+              <Route path="/browse" element={<BrowseDesignsPage />} />
+              <Route path="/vendors" element={<VendorsPage />} />
+              <Route path="/vendor/register" element={<VendorRegisterPage />} />
+              <Route path="/vendor/:slug" element={<VendorProfilePage />} />
+              <Route path="/design/:id" element={<DesignDetailPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/verify" element={<VerifyEmailPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
+              <Route path="/refund-policy" element={<RefundPolicyPage />} />
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/contact" element={<ContactUsPage />} />
+              <Route path="/track/:token" element={<TrackOrderPage />} />
+              <Route path="/tracking/:identifier" element={<OrderTrackingPage />} />
+              <Route path="/q/:quote_number" element={<PublicQuotePage />} />
+              <Route path="/material-wizard" element={<MaterialWizardPage />} />
+              <Route path="/materials/compare" element={<MaterialComparePage />} />
+              <Route path="/samples" element={<SamplePackPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+
+          </div>
         </ErrorBoundary>
       </main>
 
@@ -128,15 +163,7 @@ function AppContent() {
         </div>
       </footer>
 
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        duration={2000}
-        toastOptions={{
-          style: { pointerEvents: 'auto' },
-        }}
-      />
+      <Toaster position="top-right" richColors closeButton duration={2000} />
     </div>
   );
 }

@@ -23,15 +23,15 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminApi, FinancialsSummary } from '../services';
+import { adminApi, vendorApi, FinancialsSummary } from '../services';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { StatCard, RevenueChart } from '../components';
 
 const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'];
 
-export const FinancialsDashboard: React.FC = () => {
-  useDocumentTitle('Financials — LaserHub');
+export const FinancialsDashboard: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) => {
+  useDocumentTitle(vendorMode ? 'Shop Financials — LaserHub' : 'Financials — LaserHub');
   const { currency } = useCurrencyStore();
   const [data, setData] = useState<FinancialsSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,16 +44,23 @@ export const FinancialsDashboard: React.FC = () => {
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
-        const result = await adminApi.getFinancialsSummary();
-        setData(result);
+        if (vendorMode) {
+          const result = await vendorApi.getFinancialsSummary();
+          setData(result);
+        } else {
+          const result = await adminApi.getFinancialsSummary();
+          setData(result);
+        }
       } catch {
         toast.error('Failed to load financials');
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [vendorMode]);
+
 
   const handleDownloadTaxReport = async () => {
     setDownloading(true);

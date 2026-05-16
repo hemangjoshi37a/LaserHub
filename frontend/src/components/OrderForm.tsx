@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, Mail, User, MapPin, AlertCircle, LogIn, Info } from 'lucide-react';
+import { CreditCard, Mail, User, MapPin, AlertCircle, LogIn, Info, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { ordersApi, paymentApi, addressesApi, type SavedAddress } from '../services';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from '@stripe/react-stripe-js';
+// Stripe and Razorpay are loaded dynamically only when needed to prevent
+// console clutter and tracking prevention warnings on non-payment pages.
 import { formatPrice } from '../utils/formatPrice';
 
 // ---------------------------------------------------------------------------
@@ -27,9 +22,20 @@ const isValidStripeKey = (key: string | undefined): boolean => {
   return key.startsWith('pk_test_') || key.startsWith('pk_live_');
 };
 
-const stripePromise: Promise<Stripe | null> | null = isValidStripeKey(STRIPE_KEY)
-  ? loadStripe(STRIPE_KEY as string)
-  : null;
+// Helper to load stripe and its react components lazily
+let stripePromiseCache: any = null;
+let stripeReactLib: any = null;
+
+const getStripeModules = async () => {
+  if (!stripePromiseCache && isValidStripeKey(STRIPE_KEY)) {
+    const { loadStripe } = await import('@stripe/stripe-js');
+    stripePromiseCache = loadStripe(STRIPE_KEY as string);
+  }
+  if (!stripeReactLib) {
+    stripeReactLib = await import('@stripe/react-stripe-js');
+  }
+  return { stripePromise: stripePromiseCache, ...stripeReactLib };
+};
 
 // ---------------------------------------------------------------------------
 // Razorpay checkout helper
@@ -66,36 +72,28 @@ interface CheckoutFormProps {
   onSuccess: () => void;
 }
 
-const StripeCheckoutForm: React.FC<CheckoutFormProps> = ({ amount, onSuccess }) => {
-  const stripe = useStripe();
-  const elements = useElements();
+const StripeCheckoutForm: React.FC<CheckoutFormProps & { stripeLib: any }> = ({ amount, onSuccess, stripeLib }) => {
+  const stripe = stripeLib.useStripe();
+  const elements = stripeLib.useElements();
   const [processing, setProcessing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!stripe || !elements) return;
-
     setProcessing(true);
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
-        confirmParams: {
-          // Return URL is required but we handle the result inline
-          return_url: window.location.href,
-        },
+        confirmParams: { return_url: window.location.href },
         redirect: 'if_required',
       });
-
-      if (error) {
-        toast.error('Payment failed', { description: error.message });
-      } else if (paymentIntent?.status === 'succeeded') {
+      if (error) toast.error('Payment failed', { description: error.message });
+      else if (paymentIntent?.status === 'succeeded') {
         toast.success('Payment successful!');
         onSuccess();
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unexpected error';
-      toast.error('Payment error', { description: message });
+    } catch (err: any) {
+      toast.error('Payment error', { description: err.message });
     } finally {
       setProcessing(false);
     }
@@ -106,11 +104,7 @@ const StripeCheckoutForm: React.FC<CheckoutFormProps> = ({ amount, onSuccess }) 
       <div className="form-group">
         <label>Card / Payment Details</label>
         <div className="card-element">
-          <PaymentElement
-            options={{
-              layout: 'tabs',
-            }}
-          />
+          <stripeLib.PaymentElement options={{ layout: 'tabs' }} />
         </div>
       </div>
       <button type="submit" disabled={!stripe || processing} className="pay-btn">
@@ -242,9 +236,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
         );
       }
 
-      // If Stripe is configured, pre-fetch the PaymentIntent so the
-      // payment UI renders immediately when the user selects Stripe.
-      if (stripePromise) {
+      // If Stripe is configured, pre-fetch the PaymentIntent
+      if (isValidStripeKey(STRIPE_KEY)) {
         const payment = await paymentApi.createPaymentIntent(order.id, costEstimate.breakdown.total);
         setStripePayment({
           clientSecret: payment.client_secret,
@@ -324,6 +317,13 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
   // ---- Payment screen (order created, choose payment method) ----
   if (createdOrder) {
     const amount = createdOrder.total_amount;
+    const [stripeLib, setStripeLib] = useState<any>(null);
+
+    useEffect(() => {
+      if (isValidStripeKey(STRIPE_KEY)) {
+        getStripeModules().then(setStripeLib);
+      }
+    }, []);
 
     return (
       <div className="payment-container">
@@ -348,24 +348,30 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
         </div>
 
         {/* Stripe section */}
-        {stripePromise && stripePayment ? (
+        {stripeLib?.stripePromise && stripePayment ? (
           <div className="payment-method-section">
             <h4 className="payment-method-title">Pay with Card (Stripe)</h4>
-            <Elements
-              stripe={stripePromise}
+            <stripeLib.Elements
+              stripe={stripeLib.stripePromise}
               options={{
                 clientSecret: stripePayment.clientSecret,
                 appearance: { theme: 'stripe' },
               }}
             >
               <StripeCheckoutForm
+                stripeLib={stripeLib}
                 clientSecret={stripePayment.clientSecret}
                 amount={amount}
                 onSuccess={handleStripeSuccess}
               />
-            </Elements>
+            </stripeLib.Elements>
           </div>
-        ) : !stripePromise ? (
+        ) : isValidStripeKey(STRIPE_KEY) && !stripeLib ? (
+          <div className="payment-unavailable">
+            <Loader2 size={16} className="spin" />
+            <span>Loading payment gateway...</span>
+          </div>
+        ) : !isValidStripeKey(STRIPE_KEY) ? (
           <div className="payment-unavailable">
             <AlertCircle size={16} />
             <span>Stripe payment is not configured.</span>
@@ -393,12 +399,10 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
           </div>
         ) : null}
 
-        {!stripePromise && !razorpayConfigured && (
           <div className="payment-unavailable">
             <AlertCircle size={16} />
-            <span>No payment gateway is configured. Please contact support.</span>
+            <span>Payment app not added. Please contact support for offline payment options.</span>
           </div>
-        )}
       </div>
     );
   }

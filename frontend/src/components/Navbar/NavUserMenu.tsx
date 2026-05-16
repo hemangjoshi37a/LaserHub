@@ -1,15 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  User, 
   LogOut, 
   LayoutDashboard, 
   Package, 
-  Users, 
   Store, 
   Image as ImageIcon, 
   BarChart2, 
-  Shield,
   Settings
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -81,30 +78,46 @@ export const NavUserMenu: React.FC = () => {
           </div>
           
           <div className="nav-dropdown-list">
-            <Link to="/dashboard/profile" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
-              <User size={16} />
-              <span>Profile</span>
+            <Link 
+              to={userIsSuperAdmin ? "/admin/sa-overview" : userIsVendor ? "/vendor/dashboard/dashboard" : "/dashboard/profile"} 
+              className="nav-dropdown-item" 
+              onClick={() => setIsOpen(false)}
+            >
+              <LayoutDashboard size={16} />
+              <span>{userIsSuperAdmin ? "Admin Dashboard" : userIsVendor ? "Seller Dashboard" : "My Projects"}</span>
             </Link>
-            <Link to="/dashboard/orders" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
-              <Package size={16} />
-              <span>My Orders</span>
-            </Link>
-            <Link to="/dashboard/settings" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
+            
+            {(userIsSuperAdmin || !userIsVendor) && (
+              <Link to="/dashboard/my-orders" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
+                <Package size={16} />
+                <span>My Orders</span>
+              </Link>
+            )}
+
+            <Link 
+              to={userIsVendor ? "/vendor/dashboard/my-settings" : "/dashboard/my-settings"} 
+              className="nav-dropdown-item" 
+              onClick={() => setIsOpen(false)}
+            >
               <Settings size={16} />
               <span>Settings</span>
             </Link>
 
-            {userIsVendor && (
+            {(userIsVendor || userIsSuperAdmin) && (
               <>
                 <div className="nav-dropdown-divider" />
-                <div className="nav-dropdown-section">Vendor Hub</div>
-                <Link to="/vendor/dashboard" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
-                  <LayoutDashboard size={16} />
-                  <span>Vendor Portal</span>
+                <div className="nav-dropdown-section">Shop Management</div>
+                <Link to="/vendor/dashboard/orders" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
+                  <Package size={16} />
+                  <span>Fulfillment</span>
                 </Link>
-                <Link to="/vendor/dashboard" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
+                <Link to="/vendor/dashboard/materials-inventory" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
                   <Store size={16} />
-                  <span>Materials</span>
+                  <span>Catalog</span>
+                </Link>
+                <Link to="/vendor/dashboard/storefront" className="nav-dropdown-item" onClick={() => setIsOpen(false)}>
+                  <ImageIcon size={16} />
+                  <span>My Storefront</span>
                 </Link>
               </>
             )}

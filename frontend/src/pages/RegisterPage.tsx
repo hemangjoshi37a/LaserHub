@@ -90,6 +90,19 @@ export const RegisterPage: React.FC = () => {
     }
   };
 
+  const handleGoogleSuccess = (data: { access_token: string; user: any }) => {
+    localStorage.setItem('user_token', data.access_token);
+    setUser(data.user);
+    
+    if (data.user?.role === 'vendor') {
+      navigate('/vendor/dashboard');
+    } else if (data.user?.role === 'super_admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   return (
     <div className="auth-page auth-split">
       <div className="auth-split-inner">
@@ -172,13 +185,7 @@ export const RegisterPage: React.FC = () => {
             </button>
           </form>
 
-          <GoogleLogin
-            onSuccess={(data) => {
-              localStorage.setItem('user_token', data.access_token);
-              setUser(data.user);
-              navigate('/dashboard');
-            }}
-          />
+          <GoogleLogin onSuccess={handleGoogleSuccess} />
 
           <p className="auth-footer">
             Already have an account? <Link to="/login">Login</Link>

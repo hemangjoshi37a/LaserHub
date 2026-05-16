@@ -399,6 +399,22 @@ class PushSubscription(Base):
     user = relationship("User", backref="push_subscriptions")
 
 
+class Notification(Base):
+    """In-app notification model"""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, sa.ForeignKey("users.id"), nullable=False, index=True)
+    title = sa.Column(sa.String(255), nullable=False)
+    message = sa.Column(sa.Text, nullable=False)
+    type = sa.Column(sa.String(50), default="info")  # info, success, warning, error
+    link = sa.Column(sa.String(512), nullable=True)
+    is_read = sa.Column(sa.Boolean, default=False)
+    created_at = sa.Column(sa.DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="notifications")
+
+
 class Quote(Base):
     """Custom quote for off-platform inquiries"""
     __tablename__ = "quotes"

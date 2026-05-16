@@ -1,50 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
   Package,
-  Layers,
-  CreditCard,
-  BarChart2,
-  User as UserIcon,
-  LogOut,
-  ArrowLeft,
-  Menu,
   X,
   Mail,
   Calendar,
   Loader2,
   Star,
   Edit2,
-  Save,
   Trash2,
   Bell,
-  Settings,
   Image as ImageIcon,
-  Users,
-  Store,
-  BarChart3,
-  Palette,
   FileText,
-  MapPin,
-  Receipt,
-  type LucideIcon,
+  Plus,
+  Check,
+  CheckCircle2,
+  CreditCard,
 } from 'lucide-react';
-import { AdminDashboard } from '../components/AdminDashboard';
+import { DashboardLayout } from '../components/DashboardLayout';
 import { OrderKanban } from '../components/OrderKanban';
 import { QuoteBuilder } from '../components/QuoteBuilder';
 import { MaterialsInventory } from './MaterialsInventory';
 import { BusinessReports } from './BusinessReports';
+import { NotFoundPage } from './NotFoundPage';
 import { Invoices as InvoicesPage } from './admin/Invoices';
-import { BillingAddressBook } from '../components/billing/BillingAddressBook';
-import { CustomerInvoiceList } from '../components/invoicing/CustomerInvoiceList';
 import { PaymentSettings } from '../components/PaymentSettings';
 import { CustomersCRM } from '../components/CustomersCRM';
 import { TeamPanel } from '../components/TeamPanel';
 import { ReviewModal } from '../components/ReviewModal';
 import OrderTrackingPanel from '../components/OrderTrackingPanel';
-import { EmptyState } from '../components/ui';
+import { Button, EmptyState } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
+import { BillingAddressBook } from '../components/billing/BillingAddressBook';
+import { CustomerInvoiceList } from '../components/invoicing/CustomerInvoiceList';
+import { VendorShopManager } from '../components/vendor/VendorShopManager';
+import { VendorDashboard } from '../components/VendorDashboard';
 import { useAuthStore } from '../store/authStore';
 import { isSuperAdmin, isVendor, formatRole } from '../utils/roles';
 import { authApi, designApi, ordersApi, addressesApi, savedQuotesStore, Order, DesignItem, type SavedAddress, type SavedQuote } from '../services';
@@ -52,6 +42,7 @@ import { resolveMediaUrl } from '../services/api';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { formatPrice } from '../utils/formatPrice';
+
 
 // Super admin tab components (imported from SuperAdminPage module)
 // We re-export those sub-tab functions so they're available here.
@@ -87,22 +78,44 @@ type TabKey =
   | 'sa-vendors'
   | 'sa-designs'
   | 'sa-orders'
-  | 'sa-stats';
+  | 'sa-stats'
+  | 'storefront';
 
-interface NavItem {
-  key: TabKey;
-  label: string;
-  icon: LucideIcon;
-}
+
 
 // ============================================================================
 // Profile Tab Content
 // ============================================================================
 function ProfileTabContent() {
-  const { user, logout, setUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const navigate = useNavigate();
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(user?.name || '');
+  const [stats, setStats] = useState({ orders: 0, designs: 0, quotes: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadStats = async () => {
+      try {
+        const [orders, designs] = await Promise.all([
+          authApi.listMyOrders(),
+          designApi.getMyDesigns()
+        ]);
+        const quotes = savedQuotesStore.load();
+        setStats({
+          orders: orders.length,
+          designs: designs.length,
+          quotes: quotes.length
+        });
+      } catch (err) {
+        console.error('Failed to load profile stats');
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    loadStats();
+  }, [user]);
 
   if (!user) return null;
 
@@ -113,93 +126,350 @@ function ProfileTabContent() {
     toast.success('Name updated');
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+
 
   const getInitials = (name: string) =>
     name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2);
 
   return (
-    <div className="adm-page animate-in">
+    <div className="adm-page animate-in profile-overview">
       <header className="adm-page-header">
         <div>
-          <h1 className="adm-page-title">Profile</h1>
-          <p className="adm-page-sub">Manage your account information</p>
+          <h1 className="adm-page-title">Project Overview</h1>
+          <p className="adm-page-sub">Welcome back, {user.name.split(' ')[0]}</p>
+        </div>
+        <div className="adm-header-actions">
+           <Button variant="primary" onClick={() => navigate('/upload')} icon={<Plus size={16} />}>New Project</Button>
         </div>
       </header>
 
-      <div className="adm-card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.5rem' }}>
-          <div className="nav-avatar-initials" style={{
-            width: 64, height: 64, borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem',
-            fontWeight: 700, background: 'var(--primary-color)', color: '#fff',
-          }}>
+      <div className="profile-hero">
+        <div className="profile-hero-content">
+          <div className="profile-avatar-lg">
             {getInitials(user.name)}
           </div>
-          <div>
-            <h2 style={{ margin: 0 }}>{user.name}</h2>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Mail size={14} /> {user.email}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Calendar size={14} /> Joined{' '}
-                {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </span>
+          <div className="profile-info-main">
+            {editingName ? (
+              <div className="edit-name-group">
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  autoFocus
+                />
+                <button onClick={handleSaveName}><Check size={16} /></button>
+                <button onClick={() => setEditingName(false)}><X size={16} /></button>
+              </div>
+            ) : (
+              <h2 className="profile-name" onClick={() => setEditingName(true)}>
+                {user.name} <Edit2 size={16} className="edit-icon" />
+              </h2>
+            )}
+            <p className="profile-email">{user.email}</p>
+            <div className="profile-badges">
+              <span className="role-badge">{formatRole(user.role, user.is_admin)}</span>
+              {user.is_verified && <span className="verified-badge"><CheckCircle2 size={12} /> Verified</span>}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="adm-card">
-        <div style={{ padding: '1.5rem' }}>
-          <div className="prof-field" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', display: 'block' }}>Name</label>
-            {editingName ? (
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  style={{ padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border-color)', flex: 1 }}
-                />
-                <button className="sa-btn sa-btn--primary-sm" onClick={handleSaveName}><Save size={14} /> Save</button>
-                <button className="sa-btn sa-btn--ghost-sm" onClick={() => { setEditingName(false); setNameDraft(user.name); }}><X size={14} /> Cancel</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>{user.name}</span>
-                <button className="sa-btn sa-btn--ghost-sm" onClick={() => setEditingName(true)}><Edit2 size={14} /> Edit</button>
-              </div>
-            )}
+      <div className="profile-stats-row">
+        <div className="stat-item" onClick={() => navigate('/dashboard/my-orders')}>
+          <div className="stat-icon"><Package size={20} /></div>
+          <div className="stat-data">
+            <span className="stat-value">{loadingStats ? '...' : stats.orders}</span>
+            <span className="stat-label">Total Orders</span>
           </div>
-
-          <div className="prof-field" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', display: 'block' }}>Email</label>
-            <span>{user.email}</span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>Contact support to change</span>
+        </div>
+        <div className="stat-item" onClick={() => navigate('/dashboard/my-designs')}>
+          <div className="stat-icon"><ImageIcon size={20} /></div>
+          <div className="stat-data">
+            <span className="stat-value">{loadingStats ? '...' : stats.designs}</span>
+            <span className="stat-label">Design Library</span>
           </div>
-
-          <div className="prof-field" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', display: 'block' }}>Joined</label>
-            <span>{new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-          </div>
-
-          <div className="prof-field" style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem', display: 'block' }}>Role</label>
-            <span className="sa-badge">{formatRole(user.role, user.is_admin)}</span>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '1rem' }}>
-            <button onClick={handleLogout} className="sa-btn sa-btn--ghost-sm">
-              <LogOut size={14} /> Logout
-            </button>
+        </div>
+        <div className="stat-item" onClick={() => navigate('/dashboard/my-orders')}>
+          <div className="stat-icon"><FileText size={20} /></div>
+          <div className="stat-data">
+            <span className="stat-value">{loadingStats ? '...' : stats.quotes}</span>
+            <span className="stat-label">Saved Quotes</span>
           </div>
         </div>
       </div>
+
+      <div className="profile-content-grid">
+        <div className="profile-main-column">
+          <div className="adm-card">
+            <div className="adm-card-header">
+              <h3 className="adm-card-title">Recent Activity</h3>
+            </div>
+            <div className="activity-list">
+              {stats.orders > 0 ? (
+                <div className="activity-item">
+                  <div className="activity-dot"></div>
+                  <div className="activity-content">
+                    <p>You have <strong>{stats.orders}</strong> total orders. Keep track of your laser cutting projects here.</p>
+                    <Link to="/dashboard/my-orders" className="text-link">View Order History</Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="activity-empty">
+                  <p>No recent activity. Start your first project today!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-side-column">
+          <div className="adm-card">
+            <h3 className="card-title">Account Security</h3>
+            <div className="security-item">
+              <div className="icon-box"><Mail size={16} /></div>
+              <div className="info">
+                <div className="label">Email Address</div>
+                <div className="value">{user.email}</div>
+              </div>
+            </div>
+            <div className="security-item">
+              <div className="icon-box"><Calendar size={16} /></div>
+              <div className="info">
+                <div className="label">Member Since</div>
+                <div className="value">{new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</div>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/my-settings')} fullWidth style={{ marginTop: '1rem' }}>
+              Manage Settings
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .profile-hero {
+          background: var(--card-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 2rem;
+          margin-bottom: 1.5rem;
+          position: relative;
+          overflow: hidden;
+        }
+        .profile-hero::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--dash-accent), var(--dash-accent-soft));
+        }
+        .profile-hero-content {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
+        }
+        .profile-avatar-lg {
+          width: 80px;
+          height: 80px;
+          background: var(--dash-accent-soft);
+          color: var(--dash-accent);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2rem;
+          font-weight: 800;
+          border: 4px solid var(--card-bg);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+        .profile-name {
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+        }
+        .edit-icon {
+          opacity: 0;
+          transition: opacity 0.2s;
+          color: var(--text-tertiary);
+        }
+        .profile-name:hover .edit-icon {
+          opacity: 1;
+        }
+        .profile-email {
+          color: var(--text-secondary);
+          margin: 0.25rem 0 0.75rem 0;
+        }
+        .profile-badges {
+          display: flex;
+          gap: 0.5rem;
+        }
+        .role-badge {
+          font-size: 0.7rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          background: var(--bg-secondary);
+          padding: 0.2rem 0.6rem;
+          border-radius: 4px;
+          color: var(--text-secondary);
+        }
+        .verified-badge {
+          font-size: 0.7rem;
+          font-weight: 700;
+          background: rgba(34, 197, 94, 0.15);
+          color: #4ade80;
+          padding: 0.2rem 0.6rem;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .profile-stats-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .stat-item {
+          background: var(--card-bg);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 1.25rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          cursor: pointer;
+          transition: transform 0.2s, border-color 0.2s;
+        }
+        .stat-item:hover {
+          transform: translateY(-2px);
+          border-color: var(--dash-accent);
+        }
+        .stat-icon {
+          width: 44px;
+          height: 44px;
+          background: var(--bg-secondary);
+          color: var(--text-secondary);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .stat-value {
+          display: block;
+          font-size: 1.25rem;
+          font-weight: 800;
+        }
+        .stat-label {
+          font-size: 0.8rem;
+          color: var(--text-tertiary);
+          font-weight: 600;
+        }
+
+        .profile-content-grid {
+          display: grid;
+          grid-template-columns: 1fr 300px;
+          gap: 1.5rem;
+        }
+        .security-item {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+        .security-item .icon-box {
+          width: 36px;
+          height: 36px;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-tertiary);
+        }
+        .security-item .label {
+          font-size: 0.7rem;
+          color: var(--text-tertiary);
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+        .security-item .value {
+          font-size: 0.85rem;
+          font-weight: 600;
+          word-break: break-all;
+        }
+
+        .activity-list {
+          padding: 1.5rem;
+        }
+        .activity-item {
+          display: flex;
+          gap: 1rem;
+          position: relative;
+        }
+        .activity-dot {
+          width: 10px;
+          height: 10px;
+          background: var(--dash-accent);
+          border-radius: 50%;
+          margin-top: 5px;
+          flex-shrink: 0;
+        }
+        .activity-content p {
+          font-size: 0.9rem;
+          margin: 0 0 0.5rem 0;
+          line-height: 1.5;
+        }
+        .text-link {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--dash-accent);
+          text-decoration: none;
+        }
+
+        .edit-name-group {
+          display: flex;
+          gap: 0.5rem;
+        }
+        .edit-name-group input {
+          font-size: 1.25rem;
+          font-weight: 800;
+          background: var(--bg-tertiary);
+          color: var(--text-primary);
+          border: 1px solid var(--dash-accent);
+          border-radius: 6px;
+          padding: 0.25rem 0.5rem;
+          width: 250px;
+        }
+        .edit-name-group button {
+          background: var(--dash-accent);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+
+        @media (max-width: 900px) {
+          .profile-content-grid {
+            grid-template-columns: 1fr;
+          }
+          .profile-stats-row {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -350,6 +620,17 @@ function MyOrdersTabContent() {
                         >
                           {reorderingId === order.id ? 'Reordering…' : 'Reorder'}
                         </button>
+                        {['pending_payment', 'pending'].includes(order.status) && (
+                          <button
+                            className="sa-btn sa-btn--primary-sm"
+                            onClick={() => toast.info('Payment app not added. Please contact support for offline payment.', {
+                              icon: <CreditCard size={14} />,
+                              duration: 5000
+                            })}
+                          >
+                            Pay Now
+                          </button>
+                        )}
                         {order.status === 'completed' && !reviewedOrders.has(order.id) && (
                           <button
                             className="sa-btn sa-btn--ghost-sm"
@@ -358,6 +639,7 @@ function MyOrdersTabContent() {
                             <Star size={14} /> Review
                           </button>
                         )}
+
                         {reviewedOrders.has(order.id) && (
                           <span className="sa-badge sa-badge--success">Reviewed</span>
                         )}
@@ -775,228 +1057,143 @@ function SuperAdminTabWrapper({ tab }: { tab: string }) {
 // ============================================================================
 // Main Unified Admin Page
 // ============================================================================
+
+
 export const AdminPage: React.FC = () => {
-  useDocumentTitle('Admin Dashboard — LaserHub');
+  useDocumentTitle('Dashboard — LaserHub');
+  const { user, isLoading: authLoading, hasHydrated, checkAuth } = useAuthStore();
+  
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isLoading: authLoading, hasHydrated, logout, checkAuth } = useAuthStore();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Derive activeTab from URL path: /admin/materials or /dashboard/profile
   const pathParts = location.pathname.split('/').filter(Boolean);
-  const tabParam = (pathParts[pathParts.length - 1] || null) as TabKey | null;
+  // If we are at exactly /admin or /dashboard, tabParam should be null to trigger redirect
+  const isBaseRoute = pathParts.length === 1 && (pathParts[0] === 'admin' || pathParts[0] === 'dashboard');
+  const isVendorBase = pathParts.length === 2 && pathParts[0] === 'vendor' && pathParts[1] === 'dashboard';
+  
+  const tabParam = (isBaseRoute || isVendorBase) ? null : (pathParts[pathParts.length - 1] as TabKey);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Redirect to login if not authenticated (only after auth has been verified)
   useEffect(() => {
-    if (authLoading || !hasHydrated) return;
+    if (!hasHydrated || authLoading) return;
+
     if (!user) {
       navigate('/login');
+      return;
     }
-  }, [user, authLoading, hasHydrated, navigate]);
 
-  // Set default tab from URL or role when no tab param present
-  useEffect(() => {
-    if (!user) return;
-    if (tabParam) return; // URL already has a tab
-    const isVendorOrAdmin = isVendor(user) || !!user.is_admin;
-    const defaultTab = isVendorOrAdmin ? 'dashboard' : 'profile';
-    navigate(`/admin/${defaultTab}`, { replace: true });
-  }, [user, tabParam, navigate]);
+    // Tab authorization helper
+    const isAuthorized = (t: TabKey | null) => {
+      if (!user || !t) return false;
+      const validTabs: TabKey[] = [
+        'profile', 'my-orders', 'my-designs', 'my-invoices', 'billing-addresses', 'my-settings',
+        'dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments',
+        'sa-overview', 'sa-users', 'sa-vendors', 'sa-designs', 'sa-orders', 'sa-stats', 'storefront'
+      ];
+      if (!validTabs.includes(t)) return false;
+
+      if (['profile', 'my-orders', 'my-designs', 'billing-addresses', 'my-settings', 'my-invoices'].includes(t)) return true;
+      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments'].includes(t)) return isVendor(user);
+      if (t.startsWith('sa-') || t === 'storefront') return isSuperAdmin(user);
+      return true;
+    };
+
+    const basePath = location.pathname.startsWith('/vendor/dashboard') ? '/vendor/dashboard' : (location.pathname.startsWith('/admin') ? '/admin' : '/dashboard');
+
+    // If current tab is unauthorized, redirect to default
+    if (!tabParam || !isAuthorized(tabParam)) {
+      console.warn(`[AdminPage] Unauthorized or invalid access to tab: ${tabParam}. Redirecting.`);
+      const target = isSuperAdmin(user) ? 'sa-overview' : (isVendor(user) ? 'dashboard' : 'profile');
+      navigate(`${basePath}/${target}`, { replace: true });
+    }
+  }, [user, tabParam, navigate, hasHydrated, authLoading]);
 
   const activeTab: TabKey = tabParam || 'profile';
 
   if (authLoading || !hasHydrated || !user) return null;
 
-  const isVendorOrAdmin = isVendor(user) || !!user.is_admin;
-  const userIsSuperAdmin = isSuperAdmin(user);
+  const renderContent = (tab: TabKey) => {
+    // Proactive permission check
+    const isAuthorized = (t: TabKey) => {
+      const validTabs: TabKey[] = [
+        'profile', 'my-orders', 'my-designs', 'my-invoices', 'billing-addresses', 'my-settings',
+        'dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments',
+        'sa-overview', 'sa-users', 'sa-vendors', 'sa-designs', 'sa-orders', 'sa-stats', 'storefront'
+      ];
+      if (!validTabs.includes(t)) return false;
 
-  // Build navigation items based on role
-  const personalItems: NavItem[] = [
-    { key: 'profile', label: 'Profile', icon: UserIcon },
-    { key: 'my-orders', label: 'My Orders', icon: Package },
-    { key: 'my-designs', label: 'My Designs', icon: ImageIcon },
-    { key: 'my-invoices', label: 'My Invoices', icon: Receipt },
-    { key: 'billing-addresses', label: 'Billing Addresses', icon: MapPin },
-    { key: 'my-settings', label: 'Settings', icon: Settings },
-  ];
+      if (!user) return false;
+      if (['profile', 'my-orders', 'my-designs', 'billing-addresses', 'my-settings', 'my-invoices'].includes(t)) return true;
+      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments'].includes(t)) return isVendor(user);
+      if (t.startsWith('sa-') || t === 'storefront') return isSuperAdmin(user);
+      return true;
+    };
 
-  const vendorItems: NavItem[] = isVendorOrAdmin
-    ? [
-        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { key: 'orders', label: 'Orders', icon: Package },
-        { key: 'quotes', label: 'Quotes', icon: FileText },
-        { key: 'customers', label: 'Customers', icon: UserIcon },
-        { key: 'team', label: 'Team', icon: Users },
-        { key: 'materials-inventory', label: 'Materials & Inventory', icon: Layers },
-        { key: 'reports', label: 'Reports', icon: BarChart2 },
-        { key: 'invoices', label: 'Invoices', icon: FileText },
-        { key: 'payments', label: 'Payments', icon: CreditCard },
-      ]
-    : [];
+    if (!isAuthorized(tab)) {
+      return <ProfileTabContent />;
+    }
 
-  const superAdminItems: NavItem[] = userIsSuperAdmin
-    ? [
-        { key: 'sa-overview', label: 'Platform Overview', icon: LayoutDashboard },
-        { key: 'sa-users', label: 'Users', icon: Users },
-        { key: 'sa-vendors', label: 'Vendors', icon: Store },
-        { key: 'sa-designs', label: 'Designs', icon: Palette },
-        { key: 'sa-orders', label: 'All Orders', icon: Package },
-        { key: 'sa-stats', label: 'Platform Stats', icon: BarChart3 },
-      ]
-    : [];
+    switch (tab) {
+      case 'dashboard':
+        return <VendorDashboard />;
+      case 'orders': 
+        return <OrderKanban isVendorView={isVendor(user) && !isSuperAdmin(user)} />;
+      case 'quotes': 
+        return <QuoteBuilder />;
+      case 'customers': 
+        return <CustomersCRM />;
+      case 'team': 
+        return <TeamPanel />;
+      case 'materials-inventory': 
+        return <MaterialsInventory />;
+      case 'reports': 
+        return <BusinessReports vendorMode={isVendor(user) && !isSuperAdmin(user)} />;
 
-  const getInitials = (name: string) =>
-    name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2);
-
-  const handleLogout = () => {
-    logout();
-    toast.success('Logged out successfully');
-    navigate('/');
-  };
-
-  // Determine the title for the sidebar
-  const sidebarTitle = userIsSuperAdmin ? 'Admin Panel' : isVendorOrAdmin ? 'Vendor Dashboard' : 'My Account';
-
-  // Render the active tab content
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return <ProfileTabContent />;
+      case 'invoices': 
+        return <InvoicesPage />;
+      case 'payments': 
+        return <PaymentSettings />;
+      case 'sa-overview': 
+        return <SuperAdminTabWrapper tab="overview" />;
+      case 'sa-users': 
+        return <SuperAdminTabWrapper tab="users" />;
+      case 'sa-vendors': 
+        return <SuperAdminTabWrapper tab="vendors" />;
+      case 'sa-designs': 
+        return <SuperAdminTabWrapper tab="designs" />;
+      case 'sa-orders': 
+        return <SuperAdminTabWrapper tab="orders" />;
+      case 'sa-stats': 
+        return <SuperAdminTabWrapper tab="stats" />;
+      case 'storefront': 
+        return <VendorShopManager />;
       case 'my-orders':
         return <MyOrdersTabContent />;
       case 'my-designs':
         return <MyDesignsTabContent />;
-      case 'my-invoices':
-        return <CustomerInvoiceList />;
-      case 'billing-addresses':
-        return <BillingAddressBook />;
       case 'my-settings':
         return <MySettingsTabContent />;
-      case 'dashboard':
-        return <AdminDashboard />;
-      case 'orders':
-        return <OrderKanban />;
-      case 'quotes':
-        return <QuoteBuilder />;
-      case 'customers':
-        return <CustomersCRM />;
-      case 'team':
-        return <TeamPanel />;
-      case 'materials-inventory':
-        return <MaterialsInventory />;
-      case 'reports':
-        return <BusinessReports />;
-      case 'invoices':
-        return <InvoicesPage />;
-      case 'payments':
-        return <PaymentSettings />;
-      case 'sa-overview':
-        return <SuperAdminTabWrapper tab="overview" />;
-      case 'sa-users':
-        return <SuperAdminTabWrapper tab="users" />;
-      case 'sa-vendors':
-        return <SuperAdminTabWrapper tab="vendors" />;
-      case 'sa-designs':
-        return <SuperAdminTabWrapper tab="designs" />;
-      case 'sa-orders':
-        return <SuperAdminTabWrapper tab="orders" />;
-      case 'sa-stats':
-        return <SuperAdminTabWrapper tab="stats" />;
-      default:
+      case 'billing-addresses':
+        return <BillingAddressBook />;
+      case 'my-invoices':
+        return <CustomerInvoiceList />;
+      case 'profile':
         return <ProfileTabContent />;
+      default:
+        return <NotFoundPage />;
+
+
     }
   };
 
-  const renderNavSection = (items: NavItem[], sectionLabel?: string) => {
-    const basePath = location.pathname.startsWith('/dashboard') ? '/dashboard' : 
-                     location.pathname.startsWith('/vendor/dashboard') ? '/vendor/dashboard' : '/admin';
-    return (
-      <>
-        {sectionLabel && (
-          <div className="adm-nav-section-label">{sectionLabel}</div>
-        )}
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.key}
-              to={`${basePath}/${item.key}`}
-              className={`adm-nav-link ${activeTab === item.key ? 'adm-nav-link--active' : ''}`}
-              onClick={() => setMobileOpen(false)}
-            >
-              <Icon size={18} />
-              <span className="adm-nav-label">{item.label}</span>
-            </Link>
-          );
-        })}
-      </>
-    );
-  };
-
   return (
-    <div className="adm-shell">
-      <button
-        className="adm-mobile-toggle"
-        onClick={() => setMobileOpen((o) => !o)}
-        aria-label="Toggle sidebar"
-      >
-        {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
-      <aside className={`adm-sidebar ${mobileOpen ? 'adm-sidebar--open' : ''}`}>
-        <div className="adm-sidebar-brand">
-          <div className="adm-sidebar-logo" style={{
-            width: 36, height: 36, borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem',
-            fontWeight: 700, background: 'var(--primary-color)', color: '#fff',
-          }}>
-            {getInitials(user.name)}
-          </div>
-          <div className="adm-sidebar-brand-text">
-            <span className="adm-sidebar-title">{user.name}</span>
-            <span className="adm-sidebar-sub">{sidebarTitle}</span>
-          </div>
-        </div>
-
-        <nav className="adm-sidebar-nav">
-          {renderNavSection(personalItems)}
-
-          {vendorItems.length > 0 && (
-            <>
-              <div className="adm-nav-divider" />
-              {renderNavSection(vendorItems, 'Vendor')}
-            </>
-          )}
-
-          {superAdminItems.length > 0 && (
-            <>
-              <div className="adm-nav-divider" />
-              {renderNavSection(superAdminItems, 'Super Admin')}
-            </>
-          )}
-        </nav>
-
-        <div className="adm-sidebar-footer">
-          <button onClick={handleLogout} className="adm-nav-link adm-nav-link--button">
-            <LogOut size={18} />
-            <span className="adm-nav-label">Logout</span>
-          </button>
-          <Link to="/" className="adm-back-link">
-            <ArrowLeft size={14} />
-            <span>Back to site</span>
-          </Link>
-        </div>
-      </aside>
-
-      {mobileOpen && <div className="adm-backdrop" onClick={() => setMobileOpen(false)} />}
-
-      <main className="adm-main">
-        {renderContent()}
-      </main>
-    </div>
+    <DashboardLayout>
+      <div className="dash-animate">
+        {renderContent(activeTab)}
+      </div>
+    </DashboardLayout>
   );
 };

@@ -17,7 +17,6 @@ const ALLOWED_TYPES = {
   'application/xml': ['.svg'],
   'application/dxf': ['.dxf'],
   'image/vnd.dxf': ['.dxf'],
-  'application/pdf': ['.pdf'],
   'application/postscript': ['.ai', '.eps'],
   'application/illustrator': ['.ai'],
   'application/eps': ['.eps'],
@@ -33,11 +32,11 @@ const ALLOWED_TYPES = {
   'image/emf': ['.emf'],
   'image/x-emf': ['.emf'],
   'application/x-emf': ['.emf'],
+  'application/x-dwg': ['.dwg'],
+  'application/pdf': ['.pdf', '.ai'],
   'image/png': ['.png'],
   'image/jpeg': ['.jpg', '.jpeg'],
-  'application/x-dwg': ['.dwg'],
-  'image/vnd.dwg': ['.dwg'],
-  'application/octet-stream': ['.dxf', '.ai', '.eps', '.cdr', '.plt', '.hpgl', '.wmf', '.emf', '.png', '.jpg', '.jpeg', '.dwg'],
+  'application/octet-stream': ['.dxf', '.ai', '.eps', '.cdr', '.plt', '.hpgl', '.wmf', '.emf', '.dwg', '.pdf', '.png', '.jpg', '.jpeg'],
 };
 
 // Format-specific hints shown while uploading
@@ -46,16 +45,16 @@ function getFormatHint(filename: string): string {
   const hints: Record<string, string> = {
     dxf:  'DXF file detected — parsing geometry...',
     svg:  'SVG file detected — analysing paths...',
-    pdf:  'PDF file detected — extracting vector data...',
     ai:   'Adobe Illustrator file detected — parsing...',
     eps:  'EPS file detected — reading PostScript data...',
     cdr:  'CorelDRAW file detected — estimating dimensions...',
     plt:  'PLT/HPGL file detected — parsing plotter data...',
     hpgl: 'PLT/HPGL file detected — parsing plotter data...',
-    png:  'Image detected — extracting dimensions...',
-    jpg:  'Image detected — extracting dimensions...',
-    jpeg: 'Image detected — extracting dimensions...',
     dwg:  'DWG detected — preparing analysis...',
+    pdf:  'PDF detected — extracting vector paths...',
+    png:  'PNG detected — processing raster data...',
+    jpg:  'JPG detected — processing raster data...',
+    jpeg: 'JPEG detected — processing raster data...',
   };
   return hints[ext] ?? 'Processing file...';
 }
@@ -144,11 +143,11 @@ export const FileUpload: React.FC = () => {
                 <span className="upl-format-badge"><FileCode size={12} /> SVG</span>
                 <span className="upl-format-badge"><FileCode size={12} /> DXF</span>
                 <span className="upl-format-badge"><FileImage size={12} /> AI</span>
-                <span className="upl-format-badge"><FileTextIcon size={12} /> PDF</span>
                 <span className="upl-format-badge"><FileImage size={12} /> EPS</span>
                 <span className="upl-format-badge"><FileImage size={12} /> CDR</span>
-                <span className="upl-format-badge"><ImageIcon size={12} /> PNG/JPG</span>
                 <span className="upl-format-badge"><FileCode size={12} /> DWG</span>
+                <span className="upl-format-badge"><FileTextIcon size={12} /> PDF</span>
+                <span className="upl-format-badge"><ImageIcon size={12} /> IMG</span>
               </div>
             </>
           )}

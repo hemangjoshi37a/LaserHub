@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sun, Moon, Zap } from 'lucide-react';
+import { Menu, X, Zap } from 'lucide-react';
 import { NavLinks } from './NavLinks';
 import { NavUserMenu } from './NavUserMenu';
 import { CurrencySwitcher } from '../CurrencySwitcher';
+import { useAuthStore } from '../../store/authStore';
+import { isSuperAdmin, isVendor } from '../../utils/roles';
 import './Navbar.css';
 
 export const Navbar: React.FC = () => {
+  const { user } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  });
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
 
   // Close mobile menu on route change
@@ -19,24 +19,20 @@ export const Navbar: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Sync dark mode class and storage
+  // Track scroll for navbar shadow
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark-mode');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+  const logoLink = user ? (isSuperAdmin(user) ? '/admin/sa-overview' : isVendor(user) ? '/vendor/dashboard/dashboard' : '/') : '/';
 
   return (
-    <nav className="navbar">
+    <nav className={`navbar${isScrolled ? ' scrolled' : ''}`}>
       <div className="nav-container">
         <div className="nav-main">
-          <Link to="/" className="nav-brand">
+          <Link to={logoLink} className="nav-brand">
             <Zap className="nav-logo-icon" fill="var(--color-primary)" />
             <span>LaserHub</span>
           </Link>
@@ -48,14 +44,20 @@ export const Navbar: React.FC = () => {
           <div className="nav-links-desktop">
             <CurrencySwitcher />
           </div>
-          
-          <button 
-            className="nav-theme-toggle" 
-            onClick={toggleDarkMode}
-            aria-label="Toggle theme"
-          >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+
+          {user && isSuperAdmin(user) && (
+            <div className="nav-role-switches">
+              <Link to="/dashboard/profile" className="nav-role-btn" title="Buyer View">
+                <Zap size={18} />
+              </Link>
+              <Link to="/vendor/dashboard/dashboard" className="nav-role-btn" title="Seller View">
+                <Zap size={18} />
+              </Link>
+              <Link to="/admin/sa-overview" className="nav-role-btn" title="Admin View">
+                <Zap size={18} />
+              </Link>
+            </div>
+          )}
 
           <NavUserMenu />
 
