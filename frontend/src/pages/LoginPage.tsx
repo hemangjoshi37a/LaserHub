@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import {
   Mail,
@@ -45,25 +45,50 @@ export const LoginPage: React.FC = () => {
   const [shakeForm, setShakeForm] = useState(false);
   const [formError, setFormError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, setUser, isLoading } = useAuthStore();
+
+  // Resolve where to go after a successful sign-in. Honor ?returnTo= when it is
+  // a safe, same-site relative path (must start with a single "/" — this blocks
+  // open-redirects like "//evil.com" or "https://evil.com"). Otherwise fall
+  // back to the role-appropriate dashboard.
+  const redirectAfterAuth = (role?: string) => {
+    const returnTo = searchParams.get('returnTo');
+    if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+      navigate(returnTo, { replace: true });
+      return;
+    }
+    if (role === 'vendor') {
+      navigate('/vendor/dashboard');
+    } else if (role === 'super_admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+
+    if (!email.trim() || !password) {
+      setFormError('Please enter your email and password.');
+      setShakeForm(true);
+      setTimeout(() => setShakeForm(false), 550);
+      return;
+    }
+
     try {
       await login(email, password);
       const user = useAuthStore.getState().user;
       toast.success('Welcome back');
-      
-      if (user?.role === 'vendor') {
-        navigate('/vendor/dashboard');
-      } else if (user?.role === 'super_admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      redirectAfterAuth(user?.role);
     } catch (error) {
-      setFormError('Invalid email or password');
+      // Use the message resolved by the auth store (backend `detail` such as
+      // "Incorrect email or password"), falling back to a friendly default for
+      // network/unexpected failures rather than always blaming the credentials.
+      const message = useAuthStore.getState().error || 'Unable to sign in. Please try again.';
+      setFormError(message);
       setShakeForm(true);
       setTimeout(() => setShakeForm(false), 550);
     }
@@ -72,14 +97,7 @@ export const LoginPage: React.FC = () => {
   const handleGoogleSuccess = (data: { access_token: string; user: any }) => {
     localStorage.setItem('user_token', data.access_token);
     setUser(data.user);
-    
-    if (data.user?.role === 'vendor') {
-      navigate('/vendor/dashboard');
-    } else if (data.user?.role === 'super_admin') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
-    }
+    redirectAfterAuth(data.user?.role);
   };
 
   return (

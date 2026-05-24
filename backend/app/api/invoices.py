@@ -31,6 +31,7 @@ from sqlalchemy.orm import selectinload
 from app.api.auth import get_current_user
 from app.core.database import get_db
 from app.models import (
+    AppSetting,
     BillingAddress,
     Invoice,
     InvoiceLineItem,
@@ -286,6 +287,58 @@ def calculate_gst_for_order(
     }
 
 
+# Platform-level seller defaults used when an order has no associated vendor
+# and no seller config rows exist in app_settings. ``seller_state`` /
+# ``seller_state_code`` are NOT NULL on the invoices table, so these must never
+# be blank — they also drive CGST/SGST-vs-IGST place-of-supply logic.
+PLATFORM_SELLER_DEFAULTS: dict[str, Optional[str]] = {
+    "seller_name": "LaserHub",
+    "seller_address": "LaserHub Manufacturing, India",
+    "seller_gstin": None,
+    "seller_pan": None,
+    "seller_state": "Karnataka",
+    "seller_state_code": "29",  # Karnataka GST state code
+    "seller_email": None,
+    "seller_phone": None,
+}
+
+# app_settings keys an operator can populate to configure the platform seller
+# (see admin Settings UI). All optional; missing keys fall back to the defaults.
+_SELLER_SETTING_KEYS = (
+    "seller_name",
+    "seller_address",
+    "seller_gstin",
+    "seller_pan",
+    "seller_state",
+    "seller_state_code",
+    "seller_email",
+    "seller_phone",
+)
+
+
+async def _load_platform_seller(db: AsyncSession) -> dict[str, Optional[str]]:
+    """Resolve platform seller details from app_settings, with safe defaults.
+
+    Operators can store ``seller_*`` rows in the ``app_settings`` table to brand
+    the platform's own invoices (orders not routed to a specific vendor). Any
+    unset/blank key falls back to :data:`PLATFORM_SELLER_DEFAULTS` so the
+    invoice's NOT NULL columns (seller_state / seller_state_code) are always
+    satisfied.
+    """
+    seller = dict(PLATFORM_SELLER_DEFAULTS)
+    try:
+        result = await db.execute(
+            select(AppSetting).where(AppSetting.key.in_(_SELLER_SETTING_KEYS))
+        )
+        for row in result.scalars().all():
+            value = (row.value or "").strip()
+            if value:
+                seller[row.key] = value
+    except Exception:  # pragma: no cover - settings table optional / best effort
+        logger.warning("invoice.seller_settings_lookup_failed", exc_info=True)
+    return seller
+
+
 def _invoice_to_response(invoice: Invoice, items: List[InvoiceLineItem]) -> InvoiceResponse:
     return InvoiceResponse(
         id=invoice.id,
@@ -441,33 +494,44 @@ async def create_invoice_from_order(
         )
         return _invoice_to_response(existing, list(items.scalars().all()))
 
-    # Seller defaults (from vendor or platform)
+    # Seller defaults (from vendor, else platform settings/defaults).
+    # Platform defaults backfill any field the vendor record leaves blank so the
+    # invoice's NOT NULL seller columns (seller_state / seller_state_code) are
+    # always populated, even for legacy vendors without GST details on file.
+    platform_seller = await _load_platform_seller(db)
     if vendor:
-        seller_name = vendor.registered_business_name or vendor.shop_name or "LaserHub"
-        seller_address = vendor.business_address or vendor.location or ""
-        seller_gstin = vendor.gstin or vendor.gst_number
-        seller_pan = vendor.pan
-        seller_state = vendor.state
-        seller_state_code = vendor.state_code
-        seller_email = vendor.business_email
-        seller_phone = None
+        vendor_phone = None
         if vendor.phone_number:
-            seller_phone = (
+            vendor_phone = (
                 f"{vendor.phone_country_code or ''}{vendor.phone_number}".strip()
             )
+        seller_name = (
+            vendor.registered_business_name or vendor.shop_name
+            or platform_seller["seller_name"]
+        )
+        seller_address = (
+            vendor.business_address or vendor.location
+            or platform_seller["seller_address"]
+        )
+        seller_gstin = vendor.gstin or vendor.gst_number or platform_seller["seller_gstin"]
+        seller_pan = vendor.pan or platform_seller["seller_pan"]
+        seller_state = vendor.state or platform_seller["seller_state"]
+        seller_state_code = vendor.state_code or platform_seller["seller_state_code"]
+        seller_email = vendor.business_email or platform_seller["seller_email"]
+        seller_phone = vendor_phone or platform_seller["seller_phone"]
     else:
-        seller_name = "LaserHub"
-        seller_address = ""
-        seller_gstin = None
-        seller_pan = None
-        seller_state = None
-        seller_state_code = None
-        seller_email = None
-        seller_phone = None
+        seller_name = platform_seller["seller_name"]
+        seller_address = platform_seller["seller_address"]
+        seller_gstin = platform_seller["seller_gstin"]
+        seller_pan = platform_seller["seller_pan"]
+        seller_state = platform_seller["seller_state"]
+        seller_state_code = platform_seller["seller_state_code"]
+        seller_email = platform_seller["seller_email"]
+        seller_phone = platform_seller["seller_phone"]
 
     # Buyer defaults — try default BillingAddress, then user, then order fields
-    buyer_name = order.customer_name
-    buyer_address = order.shipping_address or ""
+    buyer_name = order.customer_name or "Customer"
+    buyer_address = order.shipping_address or "N/A"
     buyer_email = order.customer_email
     buyer_gstin = None
     buyer_state = None
@@ -499,6 +563,15 @@ async def create_invoice_from_order(
             rebuilt = "\n".join([p for p in parts if p])
             if rebuilt:
                 buyer_address = rebuilt
+
+    # buyer_state / buyer_state_code are NOT NULL on the invoices table. When the
+    # buyer's state is unknown (guest checkout, no billing address on file), fall
+    # back to the seller's state. GST treats this as an intrastate supply
+    # (CGST/SGST) — the safe default when place of supply can't be determined.
+    if not buyer_state:
+        buyer_state = seller_state
+    if not buyer_state_code:
+        buyer_state_code = seller_state_code
 
     # Compute taxes — subtotal is the order's total_amount, or order material cost * qty
     subtotal = _q(order.total_amount)

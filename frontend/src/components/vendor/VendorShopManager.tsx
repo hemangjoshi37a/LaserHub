@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Store, 
   Image as ImageIcon, 
@@ -9,17 +9,16 @@ import {
   ExternalLink, 
   Camera,
   AlertCircle,
-  Clock,
-  ShieldCheck,
-  Facebook,
-  Twitter,
-  Instagram,
-  Linkedin
+  Clock
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { vendorApi } from '../../services';
+import type { VendorAssetType } from '../../services';
 import { toast } from 'sonner';
-import { useAuthStore } from '../../store/authStore';
 
+// Local form state. Numeric fields are kept as strings so the controlled
+// <input type="number"> can be cleared without producing NaN; they are
+// coerced to numbers (or omitted) when building the save payload.
 interface VendorProfile {
   shop_name: string;
   description: string;
@@ -28,15 +27,35 @@ interface VendorProfile {
   website: string;
   location: string;
   is_verified: boolean;
-  avg_turnaround_days: number;
-  min_order_amount: number;
+  avg_turnaround_days: string;
+  min_order_amount: string;
   shipping_policy: string;
 }
 
+// Only the fields a vendor is actually allowed to edit. Read-only/computed
+// fields returned by GET /vendors/me (id, slug, rating, total_reviews,
+// total_orders, created_at, gmb_*, gmb_last_synced, etc.) are intentionally
+// excluded so we never echo them back on save.
+interface VendorUpdatePayload {
+  shop_name: string;
+  description?: string;
+  logo_url?: string;
+  banner_url?: string;
+  website?: string;
+  location?: string;
+  shipping_policy?: string;
+  avg_turnaround_days?: number;
+  min_order_amount?: number;
+}
+
 export const VendorShopManager: React.FC = () => {
-  const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Tracks which asset (if any) is currently uploading so we can show a
+  // spinner and disable the relevant control. null = idle.
+  const [uploading, setUploading] = useState<VendorAssetType | null>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<VendorProfile>({
     shop_name: '',
     description: '',
@@ -45,8 +64,8 @@ export const VendorShopManager: React.FC = () => {
     website: '',
     location: '',
     is_verified: false,
-    avg_turnaround_days: 3,
-    min_order_amount: 0,
+    avg_turnaround_days: '3',
+    min_order_amount: '0',
     shipping_policy: ''
   });
 
@@ -54,17 +73,29 @@ export const VendorShopManager: React.FC = () => {
     loadProfile();
   }, []);
 
+  // Convert a raw API value to a string for a text/number input.
+  const asStr = (v: unknown): string =>
+    v === null || v === undefined ? '' : String(v);
+
   const loadProfile = async () => {
     try {
       const { data } = await api.get('/vendors/me');
-      // Normalize null values to empty strings for controlled inputs
-      const normalized = { ...data };
-      for (const key in normalized) {
-        if (normalized[key] === null) {
-          normalized[key] = '';
-        }
-      }
-      setProfile(normalized);
+      // Map ONLY the editable fields into form state. We deliberately do not
+      // spread the whole response: it carries read-only/computed fields
+      // (rating, total_reviews, gmb_*, created_at, ...) that must never be
+      // sent back on save, and whose null->'' coercion was producing the 422.
+      setProfile({
+        shop_name: asStr(data.shop_name),
+        description: asStr(data.description),
+        logo_url: asStr(data.logo_url),
+        banner_url: asStr(data.banner_url),
+        website: asStr(data.website),
+        location: asStr(data.location),
+        is_verified: Boolean(data.is_verified),
+        avg_turnaround_days: asStr(data.avg_turnaround_days),
+        min_order_amount: asStr(data.min_order_amount),
+        shipping_policy: asStr(data.shipping_policy),
+      });
     } catch (error) {
       toast.error('Failed to load shop profile');
     } finally {
@@ -72,15 +103,95 @@ export const VendorShopManager: React.FC = () => {
     }
   };
 
+  // Coerce a numeric form string to a finite number, or undefined when the
+  // field is blank/invalid so it is omitted from the payload entirely (never
+  // sent as "" or NaN).
+  const toNum = (v: string): number | undefined => {
+    if (v === null || v === undefined || String(v).trim() === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  // Trim a text field; return undefined when empty so we omit it instead of
+  // sending an empty string for optional fields.
+  const toText = (v: string): string | undefined => {
+    const t = (v ?? '').trim();
+    return t === '' ? undefined : t;
+  };
+
+  const buildPayload = (): VendorUpdatePayload => {
+    const payload: VendorUpdatePayload = {
+      // shop_name is required by the backend, always send it (trimmed).
+      shop_name: (profile.shop_name ?? '').trim(),
+    };
+
+    const description = toText(profile.description);
+    if (description !== undefined) payload.description = description;
+
+    const logo_url = toText(profile.logo_url);
+    if (logo_url !== undefined) payload.logo_url = logo_url;
+
+    const banner_url = toText(profile.banner_url);
+    if (banner_url !== undefined) payload.banner_url = banner_url;
+
+    const website = toText(profile.website);
+    if (website !== undefined) payload.website = website;
+
+    const location = toText(profile.location);
+    if (location !== undefined) payload.location = location;
+
+    const shipping_policy = toText(profile.shipping_policy);
+    if (shipping_policy !== undefined) payload.shipping_policy = shipping_policy;
+
+    const avg_turnaround_days = toNum(profile.avg_turnaround_days);
+    if (avg_turnaround_days !== undefined) payload.avg_turnaround_days = avg_turnaround_days;
+
+    const min_order_amount = toNum(profile.min_order_amount);
+    if (min_order_amount !== undefined) payload.min_order_amount = min_order_amount;
+
+    return payload;
+  };
+
   const handleSave = async () => {
+    if (!profile.shop_name.trim()) {
+      toast.error('Shop name is required');
+      return;
+    }
     setSaving(true);
     try {
-      await api.put('/vendors/me', profile);
+      await api.put('/vendors/me', buildPayload());
       toast.success('Shop profile updated successfully');
     } catch (error) {
       toast.error('Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Upload an image asset (banner or logo) to the vendor asset endpoint.
+  // The backend stores the file and immediately persists the returned URL to
+  // the matching column (banner_url / logo_url), so the upload is durable on
+  // its own; we also mirror the URL into local form state for instant preview
+  // and so a subsequent "Save Changes" keeps it.
+  const handleAssetUpload = async (
+    assetType: Extract<VendorAssetType, 'banner' | 'logo'>,
+    file: File | undefined | null,
+  ) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file');
+      return;
+    }
+    setUploading(assetType);
+    try {
+      const { url } = await vendorApi.uploadAsset(file, assetType);
+      const field = assetType === 'banner' ? 'banner_url' : 'logo_url';
+      setProfile((prev) => ({ ...prev, [field]: url }));
+      toast.success(`${assetType === 'banner' ? 'Banner' : 'Logo'} uploaded successfully`);
+    } catch (error) {
+      toast.error(`Failed to upload ${assetType}`);
+    } finally {
+      setUploading(null);
     }
   };
 
@@ -138,10 +249,35 @@ export const VendorShopManager: React.FC = () => {
                   <span>No banner uploaded</span>
                 </div>
               )}
-              <button className="banner-upload-overlay">
-                <Camera size={24} />
-                <span>Change Banner</span>
+              <button
+                type="button"
+                className="banner-upload-overlay"
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={uploading === 'banner'}
+              >
+                {uploading === 'banner' ? (
+                  <>
+                    <Loader2 className="spinner" size={24} />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={24} />
+                    <span>{profile.banner_url ? 'Change Banner' : 'Upload Banner'}</span>
+                  </>
+                )}
               </button>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  handleAssetUpload('banner', e.target.files?.[0]);
+                  // Reset so selecting the same file again re-triggers onChange.
+                  e.target.value = '';
+                }}
+              />
             </div>
             <div className="card-body">
               <p className="field-hint">Recommended size: 1200x300px. High-quality workshop photos work best.</p>
@@ -168,7 +304,29 @@ export const VendorShopManager: React.FC = () => {
                   ) : (
                     <span>{profile.shop_name[0]}</span>
                   )}
-                  <button className="logo-edit-btn"><Camera size={14} /></button>
+                  <button
+                    type="button"
+                    className="logo-edit-btn"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploading === 'logo'}
+                    title="Upload logo"
+                  >
+                    {uploading === 'logo' ? (
+                      <Loader2 className="spinner" size={14} />
+                    ) : (
+                      <Camera size={14} />
+                    )}
+                  </button>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      handleAssetUpload('logo', e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
                 </div>
               </div>
               <div className="identity-fields">
@@ -218,19 +376,22 @@ export const VendorShopManager: React.FC = () => {
               <div className="details-grid">
                 <div className="field-group">
                   <label><Clock size={14} /> Avg. Turnaround (Days)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
+                    min={0}
                     value={profile.avg_turnaround_days}
-                    onChange={(e) => setProfile({...profile, avg_turnaround_days: parseInt(e.target.value)})}
+                    onChange={(e) => setProfile({...profile, avg_turnaround_days: e.target.value})}
                     className="shop-input"
                   />
                 </div>
                 <div className="field-group">
                   <label><AlertCircle size={14} /> Min. Order Amount</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
                     value={profile.min_order_amount}
-                    onChange={(e) => setProfile({...profile, min_order_amount: parseFloat(e.target.value)})}
+                    onChange={(e) => setProfile({...profile, min_order_amount: e.target.value})}
                     className="shop-input"
                   />
                 </div>

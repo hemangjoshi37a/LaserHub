@@ -4,7 +4,7 @@ Vendor API endpoints for marketplace
 import json
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -179,7 +179,13 @@ async def list_vendors(
     db: AsyncSession = Depends(get_db)
 ):
     """List all active vendors, with optional full-text search via ?q="""
-    query = select(Vendor).where(Vendor.is_active == True)
+    # Public listing: exclude test/internal/demo shops (e.g. "QA Shop").
+    # IS NOT TRUE => NULL/None treated as not-excluded; only explicit True is dropped.
+    query = select(Vendor).where(
+        Vendor.is_active == True,
+        Vendor.is_internal.isnot(True),
+        Vendor.is_demo.isnot(True),
+    )
 
     if location:
         query = query.where(Vendor.location.ilike(f"%{location}%"))
@@ -638,11 +644,34 @@ async def update_vendor_order(
     if not vo:
         raise HTTPException(status_code=404, detail="Vendor order not found")
 
+    old_status = vo.status
     vo.status = status
     if notes:
         vo.vendor_notes = notes
 
     await db.commit()
+
+    # Notify the buyer about the status change (persisted + best-effort push)
+    if status != old_status:
+        order = await db.get(Order, vo.order_id)
+        if order and order.user_id:
+            from app.services.notification_service import notify_user, order_status_message
+            mapped = order_status_message(status)
+            if mapped:
+                msg, ntype = mapped
+            else:
+                msg = f"Your order is now: {status.replace('_', ' ').title()}"
+                ntype = "info"
+            await notify_user(
+                db,
+                order.user_id,
+                f"Order #{order.order_number}",
+                msg,
+                type=ntype,
+                link="/dashboard/my-orders",
+            )
+            await db.commit()
+
     return {"status": "updated"}
 
 
@@ -845,12 +874,13 @@ async def get_vendor_financials(
     # Popular materials for this vendor
     mat_q = (
         select(
-            Order.material_name.label("name"),
+            Material.name.label("name"),
             func.count(Order.id).label("count"),
         )
         .join(VendorOrder, Order.id == VendorOrder.order_id)
+        .join(Material, Order.material_id == Material.id)
         .where(VendorOrder.vendor_id == vendor.id)
-        .group_by(Order.material_name)
+        .group_by(Material.name)
         .order_by(desc("count"))
         .limit(5)
     )

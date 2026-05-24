@@ -12,6 +12,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { isSuperAdmin, isVendor } from '../../utils/roles';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { NotificationBell } from '../NotificationBell';
 
 function getInitials(name: string): string {
   return name
@@ -22,7 +23,7 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export const NavUserMenu: React.FC = () => {
+export const NavUserMenu: React.FC<{ showBell?: boolean }> = ({ showBell = true }) => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -60,6 +61,11 @@ export const NavUserMenu: React.FC = () => {
   const userIsSuperAdmin = isSuperAdmin(user);
 
   return (
+    <div className="nav-user-area">
+      {/* Notification bell — visible to all logged-in users on the public nav.
+          Suppressed inside the dashboard, which renders its own bell. */}
+      {showBell && <NotificationBell variant="navbar" />}
+
     <div className="nav-user-menu" ref={menuRef}>
       <button
         className={`nav-avatar-btn ${isOpen ? 'active' : ''}`}
@@ -140,6 +146,7 @@ export const NavUserMenu: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };

@@ -43,6 +43,25 @@ import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { formatPrice } from '../utils/formatPrice';
 
+// ---------------------------------------------------------------------------
+// Online payment gateway availability.
+// Payment is only collected inline during the new-order checkout (OrderForm),
+// gated on a real Stripe/Razorpay key being configured. There is no standalone
+// route to resume payment for an already-placed order, so when no gateway is
+// configured at all, the "Pay Now" affordance must be honest rather than
+// firing a dead-end toast. Mirror OrderForm's detection here.
+// ---------------------------------------------------------------------------
+const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined;
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
+const isValidStripeKey = (key: string | undefined): boolean => {
+  if (!key) return false;
+  if (key.includes('XXXX') || key === 'your_stripe_key') return false;
+  return key.startsWith('pk_test_') || key.startsWith('pk_live_');
+};
+const ONLINE_PAYMENT_AVAILABLE =
+  isValidStripeKey(STRIPE_KEY) ||
+  Boolean(RAZORPAY_KEY && !RAZORPAY_KEY.includes('XXXX'));
+
 
 // Super admin tab components (imported from SuperAdminPage module)
 // We re-export those sub-tab functions so they're available here.
@@ -621,15 +640,24 @@ function MyOrdersTabContent() {
                           {reorderingId === order.id ? 'Reordering…' : 'Reorder'}
                         </button>
                         {['pending_payment', 'pending'].includes(order.status) && (
-                          <button
-                            className="sa-btn sa-btn--primary-sm"
-                            onClick={() => toast.info('Payment app not added. Please contact support for offline payment.', {
-                              icon: <CreditCard size={14} />,
-                              duration: 5000
-                            })}
+                          // There is no standalone route to resume payment for an
+                          // already-placed order, and no online gateway is
+                          // configured in this environment. Rather than a primary
+                          // "Pay Now" button that dead-ends in a toast, surface an
+                          // honest, clearly non-actionable note so customers aren't
+                          // misled into expecting a working online checkout.
+                          <span
+                            className="sa-badge sa-badge--warning"
+                            title={
+                              ONLINE_PAYMENT_AVAILABLE
+                                ? 'Payment is collected at checkout. Contact support to settle this pending order.'
+                                : 'Online payment is not available yet — please contact support to settle this order.'
+                            }
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                           >
-                            Pay Now
-                          </button>
+                            <CreditCard size={14} />
+                            Payment due — contact support
+                          </span>
                         )}
                         {order.status === 'completed' && !reviewedOrders.has(order.id) && (
                           <button
@@ -1096,8 +1124,8 @@ export const AdminPage: React.FC = () => {
       if (!validTabs.includes(t)) return false;
 
       if (['profile', 'my-orders', 'my-designs', 'billing-addresses', 'my-settings', 'my-invoices'].includes(t)) return true;
-      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments'].includes(t)) return isVendor(user);
-      if (t.startsWith('sa-') || t === 'storefront') return isSuperAdmin(user);
+      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'storefront'].includes(t)) return isVendor(user);
+      if (t.startsWith('sa-') || t === 'payments') return isSuperAdmin(user);
       return true;
     };
 
@@ -1127,8 +1155,8 @@ export const AdminPage: React.FC = () => {
 
       if (!user) return false;
       if (['profile', 'my-orders', 'my-designs', 'billing-addresses', 'my-settings', 'my-invoices'].includes(t)) return true;
-      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'payments'].includes(t)) return isVendor(user);
-      if (t.startsWith('sa-') || t === 'storefront') return isSuperAdmin(user);
+      if (['dashboard', 'orders', 'quotes', 'customers', 'team', 'materials-inventory', 'reports', 'invoices', 'storefront'].includes(t)) return isVendor(user);
+      if (t.startsWith('sa-') || t === 'payments') return isSuperAdmin(user);
       return true;
     };
 

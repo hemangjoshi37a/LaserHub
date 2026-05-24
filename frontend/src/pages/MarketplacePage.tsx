@@ -26,8 +26,6 @@ import { Avatar, Badge } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { useAuthStore } from '../store/authStore';
-import { isSuperAdmin, isVendor } from '../utils/roles';
 
 interface FeaturedDesign {
   id: number;
@@ -91,21 +89,13 @@ export const MarketplacePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const { user } = useAuthStore();
   const navigate = useNavigate();
   const { currency } = useCurrencyStore();
   const fp = (usd: number) => formatPrice(usd, currency);
 
-  useEffect(() => {
-    if (user) {
-      if (isSuperAdmin(user)) {
-        navigate('/admin/sa-overview', { replace: true });
-      } else if (isVendor(user)) {
-        navigate('/vendor/dashboard/dashboard', { replace: true });
-      }
-    }
-  }, [user, navigate]);
-
+  // Note: we intentionally do NOT redirect logged-in vendors/admins away from
+  // the marketplace home. Every user (including super-admin) can browse the
+  // public marketplace; the dashboard is reachable via the avatar menu.
   useEffect(() => {
     loadMarketplace();
   }, []);

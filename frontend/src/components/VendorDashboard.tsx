@@ -1,24 +1,27 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
-  Package, 
-  DollarSign, 
-  TrendingUp, 
-  AlertCircle, 
+  Package,
+  DollarSign,
+  AlertCircle,
   CheckCircle2,
   Clock,
   ArrowRight,
   Plus
 } from 'lucide-react';
-import { vendorApi, type VendorMaterialItem } from '../services';
+import { vendorApi, type VendorMaterialItem, type VendorProfile } from '../services';
+import { api } from '../services/api';
 import { toast } from 'sonner';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { Skeleton } from './Skeleton';
 import { Button } from './ui';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export const VendorDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
+  const [profile, setProfile] = useState<VendorProfile | null>(null);
+  const [materials, setMaterials] = useState<VendorMaterialItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { currency } = useCurrencyStore();
@@ -37,6 +40,22 @@ export const VendorDashboard: React.FC = () => {
       ]);
       setStats(statsData);
       setOrders(ordersData);
+
+      // Profile (turnaround, rating) + inventory are best-effort: if these
+      // secondary calls fail we still render the dashboard with neutral
+      // placeholders instead of a hard error.
+      try {
+        const { data: profileData } = await api.get<VendorProfile>('/vendors/me');
+        setProfile(profileData);
+        try {
+          const mats = await vendorApi.getVendorMaterials(profileData.id);
+          setMaterials(mats);
+        } catch {
+          setMaterials(null);
+        }
+      } catch {
+        setProfile(null);
+      }
     } catch (error: any) {
       const detail = error.response?.data?.detail || error.message;
       console.error('VendorDashboard load error:', detail);
@@ -46,6 +65,32 @@ export const VendorDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Real metrics derived from loaded data ---------------------------------
+  const COMPLETED_STATUSES = ['completed', 'delivered', 'shipped'];
+
+  // Fulfillment rate = completed orders / total orders. No orders => no data.
+  const fulfillment = useMemo(() => {
+    if (!orders || orders.length === 0) return null;
+    const done = orders.filter((o) =>
+      COMPLETED_STATUSES.includes(String(o.status || '').toLowerCase())
+    ).length;
+    return Math.round((done / orders.length) * 100);
+  }, [orders]);
+
+  // Average turnaround comes from the vendor profile (real field).
+  const turnaround = profile?.avg_turnaround_days ?? null;
+
+  // Customer rating (out of 5) from real review data.
+  const rating = profile?.rating ?? stats?.rating ?? 0;
+  const totalReviews = profile?.total_reviews ?? stats?.total_reviews ?? 0;
+  const hasReviews = totalReviews > 0 && rating > 0;
+
+  // Out-of-stock materials for inventory alerts.
+  const outOfStock = useMemo(
+    () => (materials ? materials.filter((m) => !m.is_in_stock) : []),
+    [materials]
+  );
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -99,8 +144,21 @@ export const VendorDashboard: React.FC = () => {
           <p className="adm-page-sub">Operational overview of your shop</p>
         </div>
         <div className="adm-header-actions">
-          <Button variant="outline" size="sm">Export Report</Button>
-          <Button variant="primary" size="sm" icon={<Plus size={16} />}>Manual Order</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/vendor/dashboard/reports')}
+          >
+            Export Report
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => navigate('/upload')}
+          >
+            Manual Order
+          </Button>
         </div>
       </header>
 
@@ -111,9 +169,6 @@ export const VendorDashboard: React.FC = () => {
             <p className="adm-stat-label">Active Orders</p>
             <p className="adm-stat-value">{stats?.pending_orders || 0}</p>
           </div>
-          <div className="stat-trend positive">
-            <TrendingUp size={12} /> 12%
-          </div>
         </div>
         <div className="adm-stat-card">
           <div className="adm-stat-icon success"><DollarSign size={20} /></div>
@@ -121,22 +176,23 @@ export const VendorDashboard: React.FC = () => {
             <p className="adm-stat-label">Revenue</p>
             <p className="adm-stat-value">{formatPrice(stats?.total_revenue || 0, currency)}</p>
           </div>
-          <div className="stat-trend positive">
-            <TrendingUp size={12} /> 8%
-          </div>
         </div>
         <div className="adm-stat-card">
           <div className="adm-stat-icon info"><Clock size={20} /></div>
           <div>
             <p className="adm-stat-label">Avg. Turnaround</p>
-            <p className="adm-stat-value">2.4 Days</p>
+            <p className="adm-stat-value">
+              {turnaround != null ? `${turnaround.toFixed(1)} Days` : '—'}
+            </p>
           </div>
         </div>
         <div className="adm-stat-card">
           <div className="adm-stat-icon warning"><AlertCircle size={20} /></div>
           <div>
-            <p className="adm-stat-label">Shop Health</p>
-            <p className="adm-stat-value">98%</p>
+            <p className="adm-stat-label">Avg. Rating</p>
+            <p className="adm-stat-value">
+              {hasReviews ? `${rating.toFixed(1)}/5` : 'No reviews yet'}
+            </p>
           </div>
         </div>
       </div>
@@ -189,37 +245,54 @@ export const VendorDashboard: React.FC = () => {
             <div className="perf-metric">
               <div className="label">Fulfillment Rate</div>
               <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '94%' }}></div>
+                <div className="progress-fill" style={{ width: `${fulfillment ?? 0}%` }}></div>
               </div>
-              <div className="value">94%</div>
+              <div className="value">{fulfillment != null ? `${fulfillment}%` : 'No data yet'}</div>
             </div>
             <div className="perf-metric">
               <div className="label">On-time Delivery</div>
               <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '98%', background: '#10b981' }}></div>
+                <div className="progress-fill" style={{ width: '0%', background: '#10b981' }}></div>
               </div>
-              <div className="value">98%</div>
+              <div className="value">No data yet</div>
             </div>
             <div className="perf-metric">
               <div className="label">Customer Satisfaction</div>
               <div className="progress-bar">
-                <div className="progress-fill" style={{ width: '88%', background: '#6366f1' }}></div>
+                <div
+                  className="progress-fill"
+                  style={{ width: `${hasReviews ? (rating / 5) * 100 : 0}%`, background: '#6366f1' }}
+                ></div>
               </div>
-              <div className="value">4.8/5</div>
+              <div className="value">
+                {hasReviews ? `${rating.toFixed(1)}/5 (${totalReviews})` : 'No reviews yet'}
+              </div>
             </div>
           </div>
 
           <div className="adm-card inventory-alert-card">
             <h3 className="card-title">Inventory Alerts</h3>
             <div className="alert-list">
-              <div className="alert-item warning">
-                <AlertCircle size={16} />
-                <span>Acrylic Clear 3mm is low (5 sheets)</span>
-              </div>
-              <div className="alert-item">
-                <CheckCircle2 size={16} />
-                <span>All other materials in stock</span>
-              </div>
+              {materials == null ? (
+                <div className="alert-item">
+                  <AlertCircle size={16} />
+                  <span>No inventory data</span>
+                </div>
+              ) : outOfStock.length > 0 ? (
+                outOfStock.map((m) => (
+                  <div key={m.id} className="alert-item warning">
+                    <AlertCircle size={16} />
+                    <span>
+                      {(m.material_name || 'Material')} {m.thickness_mm}mm is out of stock
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="alert-item">
+                  <CheckCircle2 size={16} />
+                  <span>All materials in stock</span>
+                </div>
+              )}
             </div>
             <Link to="/vendor/dashboard/materials-inventory" className="btn-link">Manage Inventory</Link>
           </div>
@@ -308,17 +381,6 @@ export const VendorDashboard: React.FC = () => {
           text-decoration: none;
           font-weight: 700;
         }
-
-        .stat-trend {
-          font-size: 0.75rem;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          margin-top: 0.5rem;
-        }
-        .stat-trend.positive { color: #10b981; }
-        .stat-trend.negative { color: #ef4444; }
 
         @media (max-width: 1024px) {
           .vendor-dashboard .dashboard-grid {

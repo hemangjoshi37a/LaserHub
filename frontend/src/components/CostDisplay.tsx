@@ -3,12 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { Calculator, Clock, Scissors, ShieldCheck, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { calculateApi, uploadApi, optimizationApi } from '../services';
-import type { ValidationResult, FileAnalysis } from '../services';
+import type { ValidationResult } from '../services';
 import { api } from '../services/api';
 import { toast } from 'sonner';
 import { Skeleton } from './Skeleton';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 import { QuoteComparison, type VendorQuoteDTO } from './QuoteComparison';
+
+/**
+ * Single source of truth for turning a 0-100 health score into a
+ * label / color / icon / severity. The preview "Health" badge and this
+ * analysis panel MUST both derive from this mapping so they can never
+ * contradict (e.g. a green "OPTIMAL" badge next to a red "0/100" panel).
+ *
+ * Bands: >=90 optimal (green) · 50-89 warning (amber) · <50 critical (red).
+ */
+export type HealthTone = {
+  label: string;
+  status: 'optimal' | 'warning' | 'critical';
+  color: string;
+  Icon: typeof ShieldCheck;
+};
+
+export const healthFromScore = (score: number): HealthTone => {
+  const s = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
+  if (s >= 90) return { label: 'Laser-ready', status: 'optimal', color: '#10b981', Icon: ShieldCheck };
+  if (s >= 50) return { label: 'Needs review', status: 'warning', color: '#f59e0b', Icon: AlertTriangle };
+  return { label: 'Fix before cutting', status: 'critical', color: '#ef4444', Icon: XCircle };
+};
 
 export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onCalculateComplete }) => {
   const {
@@ -169,10 +191,13 @@ export const CostDisplay: React.FC<{ onCalculateComplete: () => void }> = ({ onC
       </div>
 
       {validation && (() => {
-        const score = validation.score;
-        const tone = score >= 85 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-        const Icon = score >= 85 ? ShieldCheck : score >= 60 ? AlertTriangle : XCircle;
-        const label = score >= 85 ? 'Laser-ready' : score >= 60 ? 'Needs review' : 'Fix before cutting';
+        // Derive the headline verdict from the SAME health score that backs the
+        // preview "Health" badge (fileAnalysis.health_score) so the two can never
+        // contradict. Fall back to the validate endpoint's score only when the
+        // analysis score is unavailable. The detailed issue list below still uses
+        // validation.issues (richer per-issue data).
+        const score = fileAnalysis?.health_score ?? validation.score;
+        const { label, color: tone, Icon } = healthFromScore(score);
         return (
           <div
             style={{

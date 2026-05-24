@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Package, UserPlus, AlertCircle } from 'lucide-react';
+import { Package, UserPlus, AlertCircle, ListChecks } from 'lucide-react';
 import { ordersApi, type Order } from '../services';
 import { Skeleton } from '../components/Skeleton';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -9,7 +9,7 @@ import { formatPrice } from '../utils/formatPrice';
 export const TrackOrderPage: React.FC = () => {
   useDocumentTitle('Track Order — LaserHub');
   const { token } = useParams<{ token: string }>();
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<(Order & { guest_tracking_token?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +57,7 @@ export const TrackOrderPage: React.FC = () => {
                   order.status === 'cancelled' ? 'error' :
                   order.status === 'paid' ? 'success' :
                   order.status === 'in_production' ? 'info' : 'warning'
-                }`}>{order.status.replace('_', ' ')}</span>
+                }`}>{order.status.replace(/_/g, ' ')}</span>
               </div>
             </div>
 
@@ -81,6 +81,15 @@ export const TrackOrderPage: React.FC = () => {
                 </>
               )}
             </dl>
+
+            <div style={{ marginTop: '1.25rem' }}>
+              <Link
+                to={`/tracking/${order.guest_tracking_token || order.order_number}`}
+                className="sa-btn sa-btn--primary-sm"
+              >
+                <ListChecks size={14} /> View full status timeline
+              </Link>
+            </div>
           </div>
 
           <div className="adm-card" style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--color-primary-50, #eff6ff)' }}>

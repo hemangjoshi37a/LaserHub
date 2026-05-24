@@ -13,15 +13,16 @@ import {
   Store,
   BarChart2,
   Layers,
-  Bell,
   Search,
   Users,
-  Shield
+  Shield,
+  FileText
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { isVendor, isSuperAdmin } from '../utils/roles';
-import { notificationsApi } from '../services';
+import { api } from '../services/api';
 import { NavUserMenu } from '.';
+import { NotificationBell } from './NotificationBell';
 import '../styles/dashboard-new.css';
 import './Navbar/Navbar.css';
 
@@ -46,6 +47,7 @@ const VENDOR_NAV: NavItem[] = [
   { key: 'orders', label: 'Fulfillment', icon: Package, path: '/vendor/dashboard/orders' },
   { key: 'catalog', label: 'Shop Catalog', icon: Layers, path: '/vendor/dashboard/materials-inventory' },
   { key: 'customers', label: 'Customers', icon: Users, path: '/vendor/dashboard/customers' },
+  { key: 'quotes', label: 'Quotes', icon: FileText, path: '/vendor/dashboard/quotes' },
   { key: 'reports', label: 'Reports', icon: Receipt, path: '/vendor/dashboard/reports' },
   { key: 'storefront', label: 'My Storefront', icon: Store, path: '/vendor/dashboard/storefront' },
   { key: 'team', label: 'Team', icon: Users, path: '/vendor/dashboard/team' },
@@ -61,14 +63,41 @@ const ADMIN_NAV: NavItem[] = [
   { key: 'settings', label: 'Admin Settings', icon: Settings, path: '/admin/my-settings' },
 ];
 
+type DashboardSection = 'admin' | 'vendor' | 'customer';
+
+// Pick the dashboard section from the URL path, not the user's role. This keeps
+// the chrome (sidebar menu + breadcrumb) in sync with the page being viewed —
+// e.g. a super-admin browsing /vendor/dashboard/* sees the VENDOR menu. Access
+// control still lives at the route level (ProtectedRoute) and in role helpers;
+// this only decides which menu renders for someone already allowed on the page.
+const sectionForPath = (pathname: string): DashboardSection | null => {
+  if (pathname.startsWith('/admin')) return 'admin';
+  if (pathname.startsWith('/vendor/dashboard')) return 'vendor';
+  if (pathname.startsWith('/dashboard')) return 'customer';
+  return null;
+};
+
+const NAV_BY_SECTION: Record<DashboardSection, NavItem[]> = {
+  admin: ADMIN_NAV,
+  vendor: VENDOR_NAV,
+  customer: CUSTOMER_NAV,
+};
+
+// Breadcrumb root label per section, so the trail reflects the area being
+// viewed rather than always reading "Dashboard".
+const SECTION_LABEL: Record<DashboardSection, string> = {
+  admin: 'Admin',
+  vendor: 'Seller',
+  customer: 'Dashboard',
+};
+
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [vendorSlug, setVendorSlug] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -76,42 +105,48 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Notification Polling
+  // Notifications are handled by the shared <NotificationBell /> in the header,
+  // which polls /api/notifications and manages its own read state.
+
+  // Resolve the logged-in vendor's public storefront slug for the "View Public
+  // Shop" link. Only fetched while the vendor section is active and the current
+  // user can actually own a shop (vendor or super-admin in Seller View).
   useEffect(() => {
     if (!user) return;
-    
-    const fetchNotifications = async () => {
-      try {
-        const data = await notificationsApi.list();
-        setNotifications(data);
-      } catch (err) {
-        console.error('Failed to fetch notifications');
-      }
-    };
+    if (sectionForPath(location.pathname) !== 'vendor') return;
+    if (!isVendor(user)) return;
+    if (vendorSlug) return;
 
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // 30s polling
-    return () => clearInterval(interval);
-  }, [user]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get('/vendors/me');
+        if (!cancelled && data?.slug) setVendorSlug(data.slug);
+      } catch {
+        // No own shop (e.g. super-admin without a vendor profile) — leave the
+        // link hidden rather than pointing at a 404.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, location.pathname, vendorSlug]);
 
   if (!user) return null;
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const handleMarkRead = async (id: number) => {
-    try {
-      await notificationsApi.markAsRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    } catch (err) {
-      console.error('Failed to mark notification as read');
-    }
-  };
-
   const userIsVendor = isVendor(user);
   const userIsSuperAdmin = isSuperAdmin(user);
-  
-  // Choose navigation based on role
-  const navItems = userIsSuperAdmin ? ADMIN_NAV : (userIsVendor ? VENDOR_NAV : CUSTOMER_NAV);
+
+  // Choose chrome (menu + breadcrumb) from the PATH so it matches the page the
+  // user is viewing — e.g. a super-admin in Seller View gets the vendor menu.
+  // Fall back to the role-based default only when the path isn't a recognised
+  // dashboard area. Access control is enforced by the routes, not here.
+  const roleSection: DashboardSection = userIsSuperAdmin
+    ? 'admin'
+    : userIsVendor
+      ? 'vendor'
+      : 'customer';
+  const section: DashboardSection = sectionForPath(location.pathname) ?? roleSection;
+  const navItems = NAV_BY_SECTION[section];
+  const viewingVendorSection = section === 'vendor';
   
   const handleLogout = () => {
     logout();
@@ -123,10 +158,13 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     return location.pathname.startsWith(path);
   };
 
-  const logoLink = userIsSuperAdmin ? '/admin/sa-overview' : userIsVendor ? '/vendor/dashboard/dashboard' : '/dashboard/profile';
+  // The brand logo always returns to the public marketplace home so users are
+  // never "locked" inside the dashboard. The sidebar nav still covers in-app
+  // navigation; the dashboard root is reachable from the user/avatar menu.
+  const logoLink = '/';
 
   return (
-    <div className={`dash-container ${userIsSuperAdmin ? 'theme-admin' : userIsVendor ? 'theme-vendor' : 'theme-customer'}`}>
+    <div className={`dash-container ${section === 'admin' ? 'theme-admin' : section === 'vendor' ? 'theme-vendor' : 'theme-customer'}`}>
       {/* Sidebar */}
       <aside className={`dash-sidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="dash-sidebar-header">
@@ -175,8 +213,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </nav>
 
         <div className="dash-sidebar-footer">
-          {userIsVendor && !userIsSuperAdmin && (
-            <Link to={`/shop/${user.id}`} className="dash-view-shop">
+          {viewingVendorSection && vendorSlug && (
+            <Link to={`/vendor/${vendorSlug}`} className="dash-view-shop">
               <Store size={16} />
               <span>View Public Shop</span>
             </Link>
@@ -197,10 +235,12 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               <Menu size={20} />
             </button>
             <div className="dash-breadcrumb">
-              <span className="dash-breadcrumb-item">Dashboard</span>
+              <span className="dash-breadcrumb-item">{SECTION_LABEL[section]}</span>
               <span className="dash-breadcrumb-sep">/</span>
               <span className="dash-breadcrumb-item active">
-                {navItems.find(n => isActive(n.path))?.label || 'Overview'}
+                {navItems.find(n => isActive(n.path))?.label
+                  || navItems[0]?.label
+                  || 'Overview'}
               </span>
             </div>
           </div>
@@ -210,56 +250,12 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               <Search size={16} />
               <input type="text" placeholder="Search orders, designs..." />
             </div>
-            <div className="dash-notifications-wrapper">
-              <button 
-                className={`dash-icon-btn ${showNotifications ? 'active' : ''}`}
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && <div className="notification-dot">{unreadCount}</div>}
-              </button>
-
-              {showNotifications && (
-                <div className="dash-notifications-dropdown">
-                  <div className="dash-notifications-header">
-                    <h3>Notifications</h3>
-                    {unreadCount > 0 && <span>{unreadCount} unread</span>}
-                  </div>
-                  <div className="dash-notifications-list">
-                    {notifications.length === 0 ? (
-                      <div className="dash-no-notifications">
-                        <Bell size={24} />
-                        <p>No notifications yet</p>
-                      </div>
-                    ) : (
-                      notifications.map(n => (
-                        <div 
-                          key={n.id} 
-                          className={`dash-notification-item ${n.is_read ? 'read' : 'unread'}`}
-                          onClick={() => {
-                            if (!n.is_read) handleMarkRead(n.id);
-                            if (n.link) navigate(n.link);
-                            setShowNotifications(false);
-                          }}
-                        >
-                          <div className="notification-item-dot" />
-                          <div className="notification-item-content">
-                            <p className="notification-item-title">{n.title}</p>
-                            <p className="notification-item-msg">{n.message}</p>
-                            <span className="notification-item-time">
-                              {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell variant="dashboard" />
 
             <div className="dash-header-user">
-              <NavUserMenu />
+              {/* Dashboard renders its own <NotificationBell> above, so suppress
+                  the duplicate bell inside NavUserMenu here. */}
+              <NavUserMenu showBell={false} />
             </div>
           </div>
         </header>

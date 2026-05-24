@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -46,6 +46,15 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      },
+      // Serve the service worker during `npm run dev` so Web Push (the push
+      // event handler in src/sw.ts) can be tested with HMR. Without this the
+      // SW is only emitted in production builds and `/sw.js` falls through to
+      // the SPA HTML, which the browser refuses to register as a worker.
+      devOptions: {
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html',
       },
     }),
     visualizer({

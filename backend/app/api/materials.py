@@ -75,7 +75,13 @@ async def list_materials(db: AsyncSession = Depends(get_db)):
     """List all active materials with their configs"""
     result = await db.execute(
         select(Material)
-        .where(Material.is_active == True, Material.is_internal == False, Material.is_demo == False)
+        .where(
+            Material.is_active == True,
+            # Exclude test/internal/demo materials from the public quote configurator.
+            # IS NOT TRUE => NULL/None is treated as not-excluded (only explicit True drops).
+            Material.is_internal.isnot(True),
+            Material.is_demo.isnot(True),
+        )
         .options(selectinload(Material.configs))
     )
     materials = result.scalars().all()

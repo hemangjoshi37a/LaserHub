@@ -89,16 +89,17 @@ class StockResponse(BaseModel):
 # ---------- Helpers ----------
 
 
-async def _resolve_vendor_id(email: str, db: AsyncSession) -> int:
-    """Return the vendor.id for the calling admin email.
+async def _resolve_vendor_id(admin: User, db: AsyncSession) -> int:
+    """Return the vendor.id for the calling admin User.
+
+    ``get_current_admin`` already resolves and returns the authenticated User
+    ORM object, so we look up the linked Vendor directly by ``admin.id``.
 
     If the caller is the platform admin (no Vendor row), use vendor_id=0 as a
     platform-owned inventory bucket so the endpoints still function.
     """
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    if user:
-        v = await db.execute(select(Vendor).where(Vendor.user_id == user.id))
+    if admin is not None:
+        v = await db.execute(select(Vendor).where(Vendor.user_id == admin.id))
         vendor = v.scalar_one_or_none()
         if vendor:
             return vendor.id
@@ -133,7 +134,7 @@ async def _serialize(stock: MaterialStock, db: AsyncSession) -> StockResponse:
 @router.get("/", response_model=List[StockResponse])
 async def list_stock(
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     """List this vendor's inventory lines."""
     vendor_id = await _resolve_vendor_id(admin, db)
@@ -150,7 +151,7 @@ async def list_stock(
 async def create_stock(
     data: StockCreate,
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     vendor_id = await _resolve_vendor_id(admin, db)
     mat = await db.execute(select(Material).where(Material.id == data.material_id))
@@ -173,7 +174,7 @@ async def create_stock(
 @router.get("/alerts", response_model=List[StockResponse])
 async def list_low_stock(
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     """Return all inventory items at or below their low_threshold."""
     vendor_id = await _resolve_vendor_id(admin, db)
@@ -192,7 +193,7 @@ async def update_stock(
     stock_id: int,
     data: StockUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     vendor_id = await _resolve_vendor_id(admin, db)
     result = await db.execute(
@@ -229,7 +230,7 @@ async def update_stock(
 async def delete_stock(
     stock_id: int,
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     vendor_id = await _resolve_vendor_id(admin, db)
     result = await db.execute(
@@ -250,7 +251,7 @@ async def create_movement(
     stock_id: int,
     data: MovementCreate,
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     """Adjust stock quantity and log a movement entry."""
     vendor_id = await _resolve_vendor_id(admin, db)
@@ -282,7 +283,7 @@ async def list_movements(
     stock_id: int,
     limit: int = 25,
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     vendor_id = await _resolve_vendor_id(admin, db)
     s_result = await db.execute(

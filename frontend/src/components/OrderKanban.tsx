@@ -34,6 +34,28 @@ function isUrgent(card: KanbanCard): boolean {
   return deadline - Date.now() < 2 * 24 * 60 * 60 * 1000;
 }
 
+// Build the "Material • Nmm × Qty" spec line from whatever the order actually
+// exposes. Some sources (e.g. the vendor /orders endpoint) omit material,
+// thickness and/or quantity, so we only render the tokens that are present
+// rather than emitting an empty "• mm ×" placeholder.
+function buildSpecLine(card: KanbanCard): string | null {
+  const tokens: string[] = [];
+
+  const material = (card.material_name ?? '').toString().trim();
+  if (material) tokens.push(material);
+
+  if (card.thickness_mm !== null && card.thickness_mm !== undefined) {
+    tokens.push(`${card.thickness_mm}mm`);
+  }
+
+  if (card.quantity !== null && card.quantity !== undefined) {
+    tokens.push(`× ${card.quantity}`);
+  }
+
+  if (tokens.length === 0) return null;
+  return tokens.join(' • ');
+}
+
 interface OrderKanbanProps {
   isVendorView?: boolean;
 }
@@ -170,11 +192,20 @@ export const OrderKanban: React.FC<OrderKanbanProps> = ({ isVendorView = false }
       <div
         className="kanban-board"
         style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${COLUMN_DEFS.length}, minmax(240px, 1fr))`,
+          display: 'flex',
+          alignItems: 'flex-start',
           gap: '0.75rem',
           overflowX: 'auto',
+          overflowY: 'hidden',
           paddingBottom: '1rem',
+          // Constrain to the container so the board's own horizontal scroll
+          // engages instead of the row overflowing the page (which previously
+          // left the right-most columns unreachable). minWidth:0 lets it shrink
+          // inside flex/grid parents.
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {COLUMN_DEFS.map((col) => {
@@ -192,6 +223,9 @@ export const OrderKanban: React.FC<OrderKanbanProps> = ({ isVendorView = false }
                 borderRadius: 8,
                 padding: '0.75rem',
                 minHeight: 200,
+                width: 280,
+                flex: '0 0 280px',
+                flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.5rem',
@@ -211,6 +245,7 @@ export const OrderKanban: React.FC<OrderKanbanProps> = ({ isVendorView = false }
 
               {cards.map((card) => {
                 const urgent = isUrgent(card);
+                const specLine = buildSpecLine(card);
                 return (
                   <div
                     key={card.id}
@@ -243,10 +278,12 @@ export const OrderKanban: React.FC<OrderKanbanProps> = ({ isVendorView = false }
                       <User size={11} style={{ verticalAlign: 'middle', marginRight: 3 }} />
                       {card.customer_name || card.customer_email}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      <Box size={11} style={{ verticalAlign: 'middle', marginRight: 3 }} />
-                      {card.material_name} • {card.thickness_mm}mm × {card.quantity}
-                    </div>
+                    {specLine && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <Box size={11} style={{ verticalAlign: 'middle', marginRight: 3 }} />
+                        {specLine}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                       <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>{formatPrice(card.total_amount, currency)}</span>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
@@ -299,9 +336,9 @@ const OrderDetailPanel: React.FC<{ card: KanbanCard; onClose: () => void }> = ({
 
         <section style={{ marginBottom: '1.25rem' }}>
           <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Order details</h3>
-          <div>Material: <strong>{card.material_name}</strong></div>
-          <div>Thickness: {card.thickness_mm}mm</div>
-          <div>Quantity: {card.quantity}</div>
+          {card.material_name && <div>Material: <strong>{card.material_name}</strong></div>}
+          {card.thickness_mm !== null && card.thickness_mm !== undefined && <div>Thickness: {card.thickness_mm}mm</div>}
+          {card.quantity !== null && card.quantity !== undefined && <div>Quantity: {card.quantity}</div>}
           <div>Amount: <strong>{formatPrice(card.total_amount, currency)}</strong></div>
           <div>Status: <span className="adm-status-badge">{card.status}</span></div>
         </section>

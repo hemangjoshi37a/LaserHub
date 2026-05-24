@@ -2,6 +2,7 @@
 Authentication and User API endpoints
 """
 
+import logging
 import uuid
 import re
 from typing import List
@@ -36,13 +37,35 @@ from app.services.email_service import EmailService
 
 router = APIRouter()
 
-async def send_verification_email(email: str, name: str, token: str):
-    """Send real verification email"""
-    await EmailService.send_verification_email(email, name, token)
+logger = logging.getLogger(__name__)
 
-async def send_reset_email(email: str, token: str):
-    """Send real password reset email"""
-    await EmailService.send_password_reset(email, token)
+
+async def send_verification_email(email: str, name: str, token: str) -> None:
+    """Send verification email as a background task.
+
+    Must never raise: a background task that escapes with an exception is
+    surfaced as a 500 for the originating request (the app uses Starlette
+    BaseHTTPMiddleware, which re-raises background-task errors). SMTP/render
+    failures are already swallowed inside EmailService.send_email, but we keep
+    a defensive guard here so the request can never be affected by email.
+    """
+    try:
+        await EmailService.send_verification_email(email, name, token)
+    except Exception:
+        logger.exception("auth.send_verification_email_failed email=%s", email)
+
+
+async def send_reset_email(email: str, token: str) -> None:
+    """Send password reset email as a background task.
+
+    Must never raise — see send_verification_email. Without this guard a dev
+    box with no SMTP server (localhost:1025 refused) could turn the
+    password-reset request into a 500.
+    """
+    try:
+        await EmailService.send_password_reset(email, token)
+    except Exception:
+        logger.exception("auth.send_reset_email_failed email=%s", email)
 
 def slugify(text: str) -> str:
     return re.sub(r'[\s\W\_]+', '-', text).lower().strip('-')
@@ -241,19 +264,31 @@ async def verify_email(request: VerificationRequest, db: AsyncSession = Depends(
 @router.post("/password-reset-request")
 @limiter.limit("3 per minute")
 async def request_password_reset(
-    http_request: Request,
-    request: PasswordResetRequest,
+    request: Request,
+    payload: PasswordResetRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Request password reset"""
-    result = await db.execute(select(User).where(User.email == request.email))
+    """Request password reset.
+
+    Always returns 200 ("If the email exists...") to prevent user enumeration.
+
+    NOTE: the Starlette ``Request`` parameter MUST be named ``request`` — the
+    slowapi ``@limiter.limit`` decorator looks up the kwarg named exactly
+    ``request`` and asserts it is a ``starlette.requests.Request``. Naming the
+    Pydantic body model ``request`` (and the Request something else) makes
+    slowapi grab the body model and raise, turning every call into a 500.
+    """
+    result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
 
     if user:
         reset_token = str(uuid.uuid4())
         user.reset_token = reset_token
         await db.commit()
+        # Email delivery runs in the background and must never affect the
+        # response. send_reset_email additionally swallows any SMTP/render
+        # error, so a missing/unreachable mail server cannot 500 the request.
         background_tasks.add_task(send_reset_email, user.email, reset_token)
 
     # Always return 200 to prevent user enumeration

@@ -1,6 +1,7 @@
 """
 Security tests for LaserHub
 """
+import calendar
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -154,10 +155,11 @@ class TestTokenValidation:
         data = {"sub": "test@example.com"}
         token = create_access_token(data)
 
-        # Try to decode with different secret
-        with pytest.raises(HTTPException):
-            decoded = jwt.decode(token, "wrong_secret", algorithms=[settings.ALGORITHM])
-            # If it somehow succeeds, it should fail verification
+        # A raw jwt.decode against a different secret fails signature
+        # verification and raises PyJWT's InvalidSignatureError (not the app's
+        # HTTPException, which is only raised by decode_access_token).
+        with pytest.raises(jwt.InvalidSignatureError):
+            jwt.decode(token, "wrong_secret", algorithms=[settings.ALGORITHM])
 
     def test_decode_malformed_token(self):
         """Test decoding malformed token"""
@@ -226,14 +228,37 @@ class TestSecurityEdgeCases:
     @patch("app.core.security.datetime")
     def test_token_with_mocked_time(self, mock_datetime):
         """Test token creation with mocked datetime"""
+        # create_access_token only calls datetime.utcnow() on the patched
+        # module; the timedelta it adds comes from the real top-level import,
+        # so only utcnow needs mocking here. (The previous
+        # ``mock_datetime.timedelta = datetime.timedelta`` line was a bug:
+        # ``datetime`` is the class, which has no ``timedelta`` attribute.)
         mock_datetime.utcnow.return_value = datetime(2024, 1, 1, 0, 0, 0)
-        mock_datetime.timedelta = datetime.timedelta
 
         data = {"sub": "test@example.com"}
         token = create_access_token(data, expires_delta=timedelta(hours=1))
-        decoded = decode_access_token(token)
+
+        # Decode without expiry verification: with the clock mocked to 2024 the
+        # token's exp is in the past relative to the real wall clock, so
+        # decode_access_token would (correctly) raise "Token has expired". Here
+        # we are asserting that creation honored the mocked clock, not expiry
+        # enforcement, so we skip exp verification and check the iat/exp claims.
+        decoded = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            issuer="laserhub-api",
+            options={"verify_exp": False},
+        )
 
         assert decoded["sub"] == "test@example.com"
+        # iat reflects the mocked creation time (2024-01-01 00:00:00 UTC). The
+        # app uses datetime.utcnow(), and PyJWT encodes naive datetimes as UTC,
+        # so compare against the UTC epoch (calendar.timegm) rather than
+        # datetime.timestamp(), which would assume the local timezone.
+        assert decoded["iat"] == calendar.timegm(datetime(2024, 1, 1, 0, 0, 0).timetuple())
+        # exp is one hour after the mocked creation time
+        assert decoded["exp"] == calendar.timegm(datetime(2024, 1, 1, 1, 0, 0).timetuple())
 
     def test_none_values_in_payload(self):
         """Test handling None values in payload"""

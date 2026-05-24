@@ -17,6 +17,23 @@ const ROLE_COLORS: Record<TeamRole, string> = {
 
 const ROLES: TeamRole[] = ['owner', 'operator', 'designer', 'accountant'];
 
+// Basic email format check, mirrors the backend EmailStr requirement closely
+// enough to catch obvious mistakes before we hit the API.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Extract a human-readable message from an Axios error, handling FastAPI's
+ *  `detail` which may be a string OR an array of validation errors (422). */
+function errorMessage(e: any, fallback: string): string {
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const first = detail[0];
+    if (first?.msg) return String(first.msg);
+  }
+  if (typeof e?.message === 'string') return e.message;
+  return fallback;
+}
+
 function initials(name?: string | null, email?: string): string {
   const src = (name || email || '?').trim();
   const parts = src.split(/\s+/);
@@ -53,8 +70,8 @@ export const TeamPanel: React.FC = () => {
       await teamApi.updateRole(id, role);
       toast.success('Role updated');
       load();
-    } catch {
-      toast.error('Update failed');
+    } catch (e: any) {
+      toast.error(errorMessage(e, 'Update failed'));
     }
   };
 
@@ -64,8 +81,8 @@ export const TeamPanel: React.FC = () => {
       await teamApi.remove(id);
       toast.success('Removed');
       load();
-    } catch {
-      toast.error('Remove failed');
+    } catch (e: any) {
+      toast.error(errorMessage(e, 'Remove failed'));
     }
   };
 
@@ -179,7 +196,9 @@ export const TeamPanel: React.FC = () => {
                       {!m.accepted && (
                         <button
                           className="sa-btn sa-btn--ghost-sm"
-                          onClick={() => toast.info('Resend invite (stubbed)')}
+                          disabled
+                          title="Resending invite emails isn't available yet"
+                          style={{ opacity: 0.5, cursor: 'not-allowed' }}
                         >
                           Resend
                         </button>
@@ -255,18 +274,23 @@ function InviteModal({ onClose, onInvited }: { onClose: () => void; onInvited: (
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    if (!email.trim()) {
+    const trimmed = email.trim();
+    if (!trimmed) {
       toast.error('Email required');
+      return;
+    }
+    if (!EMAIL_RE.test(trimmed)) {
+      toast.error('Enter a valid email address');
       return;
     }
     setBusy(true);
     try {
-      await teamApi.invite(email.trim(), role);
+      await teamApi.invite(trimmed, role);
       toast.success('Invite created');
       onInvited();
       onClose();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail || 'Invite failed');
+      toast.error(errorMessage(e, 'Invite failed'));
     } finally {
       setBusy(false);
     }
@@ -306,7 +330,11 @@ function InviteModal({ onClose, onInvited }: { onClose: () => void; onInvited: (
         <input
           type="email"
           value={email}
+          autoFocus
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !busy) submit();
+          }}
           style={{
             width: '100%',
             padding: '0.5rem',

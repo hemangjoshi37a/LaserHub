@@ -138,8 +138,9 @@ export const QuoteBuilder: React.FC = () => {
                     </td>
                     <td className="adm-cell-sub">{new Date(q.created_at).toLocaleDateString()}</td>
                     <td style={{ display: 'flex', gap: '0.35rem' }}>
+                      {/* Backend only allows editing draft/sent quotes — avoid a dead-end Edit button on terminal statuses */}
                       <button className="sa-btn sa-btn--ghost-sm" onClick={() => setEditor({ mode: 'edit', quote: q })}>
-                        Edit
+                        {q.status === 'draft' || q.status === 'sent' ? 'Edit' : 'View'}
                       </button>
                       {q.status === 'sent' || q.status === 'accepted' ? (
                         <button className="sa-btn sa-btn--ghost-sm" onClick={() => handleCopyLink(q)}>
@@ -147,7 +148,7 @@ export const QuoteBuilder: React.FC = () => {
                         </button>
                       ) : null}
                       {q.status === 'draft' && (
-                        <button className="sa-btn sa-btn--danger-sm" onClick={() => handleDelete(q)}>
+                        <button className="sa-btn sa-btn--danger-sm" onClick={() => handleDelete(q)} aria-label="Delete quote">
                           <Trash2 size={12} />
                         </button>
                       )}
@@ -179,6 +180,8 @@ const QuoteEditor: React.FC<{
   onSaved: () => void;
 }> = ({ initial, materials, onClose, onSaved }) => {
   const { currency } = useCurrencyStore();
+  // Backend rejects updates to accepted/rejected/expired quotes — render those read-only.
+  const readOnly = !!initial && initial.status !== 'draft' && initial.status !== 'sent';
   const [customerName, setCustomerName] = useState(initial?.customer_name ?? '');
   const [customerEmail, setCustomerEmail] = useState(initial?.customer_email ?? '');
   const [items, setItems] = useState<QuoteLineItem[]>(initial?.items ?? [emptyItem()]);
@@ -222,6 +225,10 @@ const QuoteEditor: React.FC<{
   const validate = () => {
     if (!customerName.trim() || !customerEmail.trim()) {
       toast.error('Customer name and email are required');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+      toast.error('Enter a valid customer email');
       return false;
     }
     if (items.length === 0) {
@@ -286,18 +293,18 @@ const QuoteEditor: React.FC<{
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0 }}>{initial ? `Edit ${initial.quote_number}` : 'New Quote'}</h2>
+          <h2 style={{ margin: 0 }}>{initial ? `${readOnly ? 'View' : 'Edit'} ${initial.quote_number}` : 'New Quote'}</h2>
           <button className="sa-btn sa-btn--ghost-sm" onClick={onClose}><X size={14} /></button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
           <label>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Customer name</div>
-            <input className="sa-input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={inputStyle} />
+            <input className="sa-input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={inputStyle} disabled={readOnly} />
           </label>
           <label>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Customer email</div>
-            <input className="sa-input" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} style={inputStyle} />
+            <input className="sa-input" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} style={inputStyle} disabled={readOnly} />
           </label>
         </div>
 
@@ -305,39 +312,43 @@ const QuoteEditor: React.FC<{
         <div style={{ border: '1px solid var(--border-color)', borderRadius: 6, padding: '0.5rem' }}>
           {items.map((item, idx) => (
             <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 0.8fr 0.7fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-              <input placeholder="Description" value={item.description} onChange={(e) => updateItem(idx, { description: e.target.value })} style={inputStyle} />
-              <select value={item.material} onChange={(e) => updateItem(idx, { material: e.target.value })} style={inputStyle}>
+              <input placeholder="Description" value={item.description} onChange={(e) => updateItem(idx, { description: e.target.value })} style={inputStyle} disabled={readOnly} />
+              <select value={item.material} onChange={(e) => updateItem(idx, { material: e.target.value })} style={inputStyle} disabled={readOnly}>
                 <option value="">Material...</option>
                 {materials.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
               </select>
-              <input placeholder="mm" type="number" step="0.1" value={item.thickness ?? ''} onChange={(e) => updateItem(idx, { thickness: e.target.value ? Number(e.target.value) : undefined })} style={inputStyle} />
-              <input placeholder="Qty" type="number" min={1} value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) || 0 })} style={inputStyle} />
-              <input placeholder="Unit price" type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(idx, { unit_price: Number(e.target.value) || 0 })} style={inputStyle} />
+              <input placeholder="mm" type="number" step="0.1" value={item.thickness ?? ''} onChange={(e) => updateItem(idx, { thickness: e.target.value ? Number(e.target.value) : undefined })} style={inputStyle} disabled={readOnly} />
+              <input placeholder="Qty" type="number" min={1} value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) || 0 })} style={inputStyle} disabled={readOnly} />
+              <input placeholder="Unit price" type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(idx, { unit_price: Number(e.target.value) || 0 })} style={inputStyle} disabled={readOnly} />
               <div style={{ textAlign: 'right', fontWeight: 600 }}>{formatPrice(item.subtotal, currency)}</div>
-              <button className="sa-btn sa-btn--ghost-sm" onClick={() => removeItem(idx)} aria-label="Remove"><Trash2 size={12} /></button>
+              {!readOnly && (
+                <button className="sa-btn sa-btn--ghost-sm" onClick={() => removeItem(idx)} aria-label="Remove"><Trash2 size={12} /></button>
+              )}
             </div>
           ))}
-          <button className="sa-btn sa-btn--ghost-sm" onClick={addItem}><Plus size={12} /> Add item</button>
+          {!readOnly && (
+            <button className="sa-btn sa-btn--ghost-sm" onClick={addItem}><Plus size={12} /> Add item</button>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginTop: '1rem' }}>
           <label>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Setup fee</div>
-            <input type="number" step="0.01" value={setupFee} onChange={(e) => setSetupFee(Number(e.target.value) || 0)} style={inputStyle} />
+            <input type="number" step="0.01" value={setupFee} onChange={(e) => setSetupFee(Number(e.target.value) || 0)} style={inputStyle} disabled={readOnly} />
           </label>
           <label>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Tax %</div>
-            <input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(Number(e.target.value) || 0)} style={inputStyle} />
+            <input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(Number(e.target.value) || 0)} style={inputStyle} disabled={readOnly} />
           </label>
           <label>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Valid until</div>
-            <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} style={inputStyle} />
+            <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} style={inputStyle} disabled={readOnly} />
           </label>
         </div>
 
         <label style={{ display: 'block', marginTop: '1rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4 }}>Notes</div>
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...inputStyle, minHeight: 70 }} />
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...inputStyle, minHeight: 70 }} disabled={readOnly} />
         </label>
 
         <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--bg-secondary, #f5f5f5)', borderRadius: 6, fontSize: '0.875rem' }}>
@@ -350,11 +361,17 @@ const QuoteEditor: React.FC<{
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-          <button className="sa-btn sa-btn--ghost-sm" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="sa-btn sa-btn--ghost-sm" onClick={saveDraft} disabled={saving}>Save Draft</button>
-          <button className="sa-btn sa-btn--primary-sm" onClick={sendQuote} disabled={saving}>
-            <Send size={12} /> Send to Customer
+          <button className="sa-btn sa-btn--ghost-sm" onClick={onClose} disabled={saving}>
+            {readOnly ? 'Close' : 'Cancel'}
           </button>
+          {!readOnly && (
+            <>
+              <button className="sa-btn sa-btn--ghost-sm" onClick={saveDraft} disabled={saving}>Save Draft</button>
+              <button className="sa-btn sa-btn--primary-sm" onClick={sendQuote} disabled={saving}>
+                <Send size={12} /> {initial?.status === 'sent' ? 'Re-send' : 'Send to Customer'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

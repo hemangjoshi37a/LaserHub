@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Heart, Download, Grid, Star, ShoppingCart, Ruler, Layers, FileCode2 } from 'lucide-react';
 import { api, resolveMediaUrl } from '../services/api';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
-import { Button, PageHeader } from '../components/ui';
+import { Button, PageHeader, EmptyState } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -82,7 +82,11 @@ export const DesignDetailPage: React.FC = () => {
   const [error, setError] = useState('');
   const { isAuthenticated } = useAuthStore();
 
-  useDocumentTitle(design ? `${design.title} — LaserHub` : 'Design — LaserHub');
+  // Always reflect the design name in the browser tab so it never gets stuck
+  // on the app's default title. Fall back gracefully while loading or if a
+  // design happens to have a blank title.
+  const designTitle = design?.title?.trim();
+  useDocumentTitle(designTitle ? `${designTitle} — LaserHub` : 'Design — LaserHub');
 
   useEffect(() => {
     if (id) loadDesign();
@@ -164,6 +168,29 @@ export const DesignDetailPage: React.FC = () => {
   // Hide rating column if every vendor has a 0.0 rating
   const showRating = listings.some((l) => (l.rating || 0) > 0);
 
+  // Route the visitor into the upload/quote flow, pre-seeding this design so
+  // the file is auto-loaded there (HomePage reads `design_id`). Optionally
+  // carries a specific vendor/material/thickness when ordering a listing.
+  // Mirrors the auth gate used elsewhere — `/upload` is a protected route.
+  const goToUpload = (listing?: VendorListing) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to continue');
+      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`/login?returnTo=${returnUrl}`);
+      return;
+    }
+    const params = new URLSearchParams({ design_id: String(design.id) });
+    if (design.file_id) params.set('file_id', design.file_id);
+    if (listing) {
+      params.set('vendor', listing.vendor_slug);
+      params.set('material', listing.material_name);
+      params.set('thickness', String(listing.thickness_mm));
+    }
+    // Skip the upload step — the design file is loaded automatically.
+    params.set('step', '2');
+    navigate(`/upload?${params.toString()}`);
+  };
+
   return (
     <div className="design-detail-page public-page">
       <PageHeader
@@ -212,7 +239,7 @@ export const DesignDetailPage: React.FC = () => {
             </span>
           </div>
 
-          {design.tags && design.tags.length > 0 && (
+          {design.tags && design.tags.length > 0 ? (
             <div className="design-tags">
               {design.tags.map((tag) => (
                 <Link
@@ -224,7 +251,23 @@ export const DesignDetailPage: React.FC = () => {
                 </Link>
               ))}
             </div>
+          ) : (
+            <p className="design-tags-empty" style={{ color: 'var(--text-muted, #888)', fontSize: '0.85rem', margin: 0 }}>
+              No tags yet
+            </p>
           )}
+
+          {/* Primary action — always present so the page is never a dead-end,
+              even when no vendor has listed a ready-to-buy price. */}
+          <div className="design-detail-cta" style={{ marginTop: '1.25rem' }}>
+            <Button
+              size="lg"
+              icon={<ShoppingCart size={18} />}
+              onClick={() => goToUpload()}
+            >
+              {listings.length > 0 ? 'Customize & order' : 'Get a quote'}
+            </Button>
+          </div>
         </div>
 
         {/* Specs card (right column on wide screens) */}
@@ -271,9 +314,37 @@ export const DesignDetailPage: React.FC = () => {
         </aside>
       </div>
 
-      {listings.length > 0 && (
-        <section className="design-listings">
-          <h2>Order from a Vendor</h2>
+      <section className="design-listings">
+        <h2>Order from a Vendor</h2>
+        {listings.length > 0 && (
+          <p
+            className="design-listings-note"
+            style={{ color: 'var(--text-muted, #888)', fontSize: '0.85rem', margin: '0 0 1rem' }}
+          >
+            Prices shown are indicative starting points. Your final quote is calculated
+            from this design's cut length and the material, thickness and quantity you choose.
+          </p>
+        )}
+        {listings.length === 0 ? (
+          <EmptyState
+            icon={<ShoppingCart size={40} />}
+            title="No vendor listings yet"
+            description="No shops have listed a ready-to-buy price for this design. You can still order it — customize the material, thickness and quantity to get an instant quote."
+            action={
+              <div
+                className="design-empty-actions"
+                style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}
+              >
+                <Button icon={<ShoppingCart size={16} />} onClick={() => goToUpload()}>
+                  Customize &amp; order
+                </Button>
+                <Link to="/browse">
+                  <Button variant="secondary">Browse designs</Button>
+                </Link>
+              </div>
+            }
+          />
+        ) : (
           <div className="design-listings-table-wrap">
             <table className="public-listings-table">
               <thead>
@@ -281,7 +352,7 @@ export const DesignDetailPage: React.FC = () => {
                   <th>Vendor</th>
                   <th>Material</th>
                   <th>Thickness</th>
-                  <th className="ta-right">Price</th>
+                  <th className="ta-right" title="Indicative starting price — your final quote depends on the design's cut length, material, thickness and quantity">From</th>
                   {showTurnaround && <th title="Based on vendor lead time + current workload">ETA</th>}
                   {showRating && <th>Rating</th>}
                   <th />
@@ -297,7 +368,7 @@ export const DesignDetailPage: React.FC = () => {
                     </td>
                     <td>{l.material_name}</td>
                     <td>{l.thickness_mm}mm</td>
-                    <td className="ta-right mp-price">{fp(l.price)}</td>
+                    <td className="ta-right mp-price">from {fp(l.price)}</td>
                     {showTurnaround && (
                       <td className="listing-eta">
                         {l.turnaround_days ? (
@@ -333,25 +404,9 @@ export const DesignDetailPage: React.FC = () => {
                       <Button
                         size="sm"
                         icon={<ShoppingCart size={14} />}
-                        onClick={() => {
-                          if (!isAuthenticated) {
-                            toast.error('Please sign in to place an order');
-                            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-                            navigate(`/login?returnTo=${returnUrl}`);
-                            return;
-                          }
-                          const params = new URLSearchParams({
-                            design_id: String(design.id),
-                            vendor: l.vendor_slug,
-                            material: l.material_name,
-                            thickness: String(l.thickness_mm),
-                          });
-                          if (design.file_id) params.set('file_id', design.file_id);
-                          params.set('step', '2');
-                          navigate(`/upload?${params.toString()}`);
-                        }}
+                        onClick={() => goToUpload(l)}
                       >
-                        Order
+                        Get quote
                       </Button>
                     </td>
                   </tr>
@@ -359,8 +414,8 @@ export const DesignDetailPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {related.length > 0 && (
         <section className="public-related">

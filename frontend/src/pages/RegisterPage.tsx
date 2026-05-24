@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import {
   Mail,
@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Building2,
   Users,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleLogin } from '../components/GoogleLogin';
@@ -70,31 +71,54 @@ export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'customer' | 'vendor'>('customer');
+  const [formError, setFormError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register, setUser, isLoading } = useAuthStore();
+
+  // Preserve ?returnTo= across the register -> login handoff so a user who was
+  // sent here mid-flow (e.g. checkout) lands back where they started.
+  const returnTo = searchParams.get('returnTo');
+  const loginHref = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login';
+
+  const safeReturnTo = () =>
+    returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError('');
+
+    if (!name.trim() || !email.trim()) {
+      setFormError('Please fill in your name and email.');
+      return;
+    }
+
     if (password.length < 8) {
-      toast.error('Password must be at least 8 characters long');
+      setFormError('Password must be at least 8 characters long.');
       return;
     }
 
     try {
       await register({ email, name, password, role });
-      toast.success('Registration successful! Please check your email for verification.');
-      navigate('/login');
+      toast.success('Account created! Check your email to verify your address, then sign in.');
+      navigate(loginHref);
     } catch (error) {
-      toast.error('Registration failed. Email may already be in use.');
+      // Surface the backend's actual reason (e.g. "Email already registered")
+      // instead of always guessing it was a duplicate email.
+      const message =
+        useAuthStore.getState().error || 'Registration failed. Please try again.';
+      setFormError(message);
     }
   };
 
   const handleGoogleSuccess = (data: { access_token: string; user: any }) => {
     localStorage.setItem('user_token', data.access_token);
     setUser(data.user);
-    
-    if (data.user?.role === 'vendor') {
+
+    const dest = safeReturnTo();
+    if (dest) {
+      navigate(dest, { replace: true });
+    } else if (data.user?.role === 'vendor') {
       navigate('/vendor/dashboard');
     } else if (data.user?.role === 'super_admin') {
       navigate('/admin');
@@ -140,9 +164,13 @@ export const RegisterPage: React.FC = () => {
                 <input
                   id="name"
                   type="text"
+                  autoComplete="name"
                   placeholder="John Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (formError) setFormError('');
+                  }}
                   required
                 />
               </div>
@@ -155,9 +183,13 @@ export const RegisterPage: React.FC = () => {
                 <input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (formError) setFormError('');
+                  }}
                   required
                 />
               </div>
@@ -170,25 +202,36 @@ export const RegisterPage: React.FC = () => {
                 <input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (formError) setFormError('');
+                  }}
                   required
                 />
               </div>
               <p className="field-hint">Must be at least 8 characters</p>
             </div>
 
+            {formError && (
+              <div className="lh-auth-error" role="alert">
+                <AlertCircle size={16} />
+                <span>{formError}</span>
+              </div>
+            )}
+
             <button type="submit" className="auth-submit" disabled={isLoading}>
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
-              Create Account
+              {isLoading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
           <GoogleLogin onSuccess={handleGoogleSuccess} />
 
           <p className="auth-footer">
-            Already have an account? <Link to="/login">Login</Link>
+            Already have an account? <Link to={loginHref}>Login</Link>
           </p>
         </div>
 

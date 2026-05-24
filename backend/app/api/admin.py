@@ -22,7 +22,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, decode_access_token, verify_password
 from app.middleware.rate_limiter import limiter
-from app.models import AppSetting, Material, Order, UploadedFile, User
+from app.models import AppSetting, Material, Order, UploadedFile, User, Vendor, VendorOrder
 from app.schemas import (
     AdminToken,
     AnalyticsData,
@@ -100,7 +100,44 @@ async def get_current_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access admin resources"
         )
-        
+
+    return user
+
+
+async def get_admin_or_vendor(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Validate a JWT and return the User if they are an admin, super_admin, or vendor.
+
+    Used by the order-status (Kanban) endpoint, which is reachable from both the
+    admin board and the vendor fulfillment board. Per-order ownership for
+    vendors is enforced separately in the endpoint itself.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = decode_access_token(token)
+        email = payload.get("sub")
+        if not email:
+            raise credentials_exception
+    except Exception:
+        raise credentials_exception
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise credentials_exception
+
+    if user.role not in ("admin", "super_admin", "vendor") and not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or vendor role required",
+        )
+
     return user
 
 
@@ -335,21 +372,80 @@ async def patch_order_status(
     order_id: int,
     payload: dict = Body(...),
     db: AsyncSession = Depends(get_db),
-    admin: str = Depends(get_current_admin),
+    user: User = Depends(get_admin_or_vendor),
 ):
-    """Change an order's status (used by the Kanban drag-and-drop)."""
+    """Change an order's status (used by the admin AND vendor Kanban boards).
+
+    The admin board passes an ``Order.id``; the vendor fulfillment board passes
+    a ``VendorOrder.id`` (that's what ``GET /vendors/orders`` returns as ``id``).
+    We resolve either form to the underlying :class:`Order` so the buyer
+    (``Order.user_id``) is always notified on a status change.
+    """
     new_status = (payload or {}).get("status")
     if not new_status or new_status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {sorted(VALID_STATUSES)}")
 
-    result = await db.execute(select(Order).where(Order.id == order_id))
-    order = result.scalar_one_or_none()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+    is_admin = user.role in ("admin", "super_admin") or user.is_admin
 
+    # Resolve the target Order. The path param is role-dependent because the two
+    # Kanban boards send different ids and the numeric spaces collide:
+    #   * admin board  -> order_id is an ``Order.id``
+    #   * vendor board -> order_id is a ``VendorOrder.id`` (what GET /vendors/orders
+    #     returns as each card's ``id``)
+    # Resolving by role avoids mistaking a VendorOrder.id for an unrelated Order.id.
+    vendor_order: VendorOrder | None = None
+
+    if is_admin:
+        order = (await db.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+    else:
+        # Vendor caller: the id is a VendorOrder.id they must own.
+        vendor = (
+            await db.execute(select(Vendor).where(Vendor.user_id == user.id))
+        ).scalar_one_or_none()
+        if vendor is None:
+            raise HTTPException(status_code=403, detail="No vendor profile for this user")
+
+        vendor_order = (
+            await db.execute(select(VendorOrder).where(VendorOrder.id == order_id))
+        ).scalar_one_or_none()
+        if vendor_order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if vendor_order.vendor_id != vendor.id:
+            raise HTTPException(status_code=403, detail="Not authorized to update this order")
+
+        order = await db.get(Order, vendor_order.order_id)
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+    old_status = order.status
     order.status = new_status
+    # Keep the linked VendorOrder status in sync when we have one.
+    if vendor_order is not None:
+        vendor_order.status = new_status
     await db.commit()
     await db.refresh(order)
+
+    # Notify the buyer about the status change (persisted + best-effort push)
+    if new_status != old_status and order.user_id:
+        from app.services.notification_service import notify_user, order_status_message
+        mapped = order_status_message(new_status)
+        if mapped:
+            msg, ntype = mapped
+        else:
+            msg = f"Your order is now: {new_status.replace('_', ' ').title()}"
+            ntype = "info"
+        await notify_user(
+            db,
+            order.user_id,
+            f"Order #{order.order_number}",
+            msg,
+            type=ntype,
+            link="/dashboard/my-orders",
+        )
+        await db.commit()
+
     return {"id": order.id, "status": order.status}
 
 
@@ -402,17 +498,25 @@ async def update_order(
     await db.commit()
     await db.refresh(order)
 
-    # Send push notification to the customer if they have a linked account
+    # Notify the buyer about the status change (persisted + best-effort push)
     if update_data.status and update_data.status.value != old_status and order.user_id:
-        from app.api.notifications import send_push_notification_bg
-        status_label = update_data.status.value.replace("_", " ").title()
-        background_tasks.add_task(
-            send_push_notification_bg,
+        from app.services.notification_service import notify_user, order_status_message
+        new_status = update_data.status.value
+        mapped = order_status_message(new_status)
+        if mapped:
+            msg, ntype = mapped
+        else:
+            msg = f"Your order is now: {new_status.replace('_', ' ').title()}"
+            ntype = "info"
+        await notify_user(
+            db,
             order.user_id,
-            "Order Status Updated",
-            f"Your order {order.order_number} is now: {status_label}",
-            "/profile",
+            f"Order #{order.order_number}",
+            msg,
+            type=ntype,
+            link="/dashboard/my-orders",
         )
+        await db.commit()
 
     # Send email notifications in background
     if update_data.status and update_data.status.value != old_status:

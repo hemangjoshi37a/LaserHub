@@ -262,6 +262,7 @@ async def upload_file(
 
     import json
     validation_issues = []
+    parse_warning = None
     try:
         analysis = await asyncio.to_thread(parse_generic, str(file_path))
         width_mm = analysis.get("width_mm", 0) or 0
@@ -459,12 +460,23 @@ async def get_file_analysis(
     issues = []
     if file_record.validation_issues:
         try:
-            issues = json.loads(file_record.validation_issues)
+            parsed = json.loads(file_record.validation_issues)
+            # validation_issues is stored as the full validate_geometry dict
+            # ({is_valid, warnings, health_score}); FileAnalysis expects the
+            # warnings list. Accept either shape.
+            if isinstance(parsed, dict):
+                issues = parsed.get("warnings", [])
+            elif isinstance(parsed, list):
+                issues = parsed
         except Exception:
             issues = []
 
     validation_data = validate_laser_cuttable(str(file_record.file_path))
-    health_score = validation_data.get("health_score", 100.0)
+    # health_score may be present-but-None; guard against None comparison (don't
+    # use `or` so a legitimate 0 is preserved).
+    health_score = validation_data.get("health_score")
+    if health_score is None:
+        health_score = 100.0
     health_status = "optimal"
     if health_score < 50:
         health_status = "critical"

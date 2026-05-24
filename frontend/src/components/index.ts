@@ -11,3 +11,4 @@ export { ReviewModal } from './ReviewModal';
 export { StatCard } from './StatCard';
 export { RevenueChart } from './RevenueChart';
 export { NotificationPrompt } from './NotificationPrompt';
+export { NotificationBell } from './NotificationBell';

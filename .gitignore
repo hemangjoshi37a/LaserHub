@@ -98,3 +98,8 @@ test-files/
 .playwright-mcp/
 .git.corrupted-backup/
 
+
+# Build artifacts / runtime caches (added during QA hardening)
+frontend/dev-dist/
+*.tsbuildinfo
+backend/app/static/designs/

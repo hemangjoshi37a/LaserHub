@@ -66,7 +66,7 @@ async def test_materials(db_session: AsyncSession):
             name="Acrylic Clear",
             type="acrylic",
             rate_per_cm2_mm=0.05,
-            available_thicknesses="[3, 5, 10]",
+            available_thicknesses_raw="[3, 5, 10]",
             description="Clear acrylic sheet"
         ),
         Material(
@@ -74,7 +74,7 @@ async def test_materials(db_session: AsyncSession):
             name="MDF Wood",
             type="wood_mdf",
             rate_per_cm2_mm=0.03,
-            available_thicknesses="[4, 6, 8]",
+            available_thicknesses_raw="[4, 6, 8]",
             description="Medium Density Fiberboard"
         ),
         Material(
@@ -82,7 +82,7 @@ async def test_materials(db_session: AsyncSession):
             name="Stainless Steel",
             type="stainless_steel",
             rate_per_cm2_mm=0.15,
-            available_thicknesses="[1, 2]",
+            available_thicknesses_raw="[1, 2]",
             description="Stainless steel sheet",
             is_active=False
         )
@@ -117,7 +117,7 @@ async def test_admin_user(db_session: AsyncSession):
         name="Admin User",
         hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
         is_verified=True,
-        is_active=True
+        is_admin=True
     )
 
     db_session.add(user)
@@ -156,11 +156,14 @@ async def test_uploaded_file(db_session: AsyncSession, test_user: User):
         file_id=str(uuid.uuid4()),
         filename="test.dxf",
         file_size=1024,
-        upload_path="/tmp/test.dxf",
+        file_path="/tmp/test.dxf",
+        file_type="dxf",
+        width_mm=100.0,
+        height_mm=100.0,
         area_cm2=100.0,
         cut_length_mm=500.0,
-        uploaded_by_id=test_user.id,
-        metadata=json.dumps({"format": "DXF", "version": "R2010"})
+        estimated_cut_time_minutes=1.0,
+        validation_issues=json.dumps([]),
     )
 
     db_session.add(uploaded_file)

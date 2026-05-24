@@ -1,9 +1,27 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Store, ShieldCheck, CreditCard, FileText, CheckCircle, ArrowRight, Upload, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Store, ShieldCheck, CreditCard, FileText, CheckCircle, ArrowRight, Upload, Loader2, LogIn } from 'lucide-react';
 import { vendorApi } from '../services';
+import api from '../services/api';
+import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+
+// Client-side validators mirror the backend (VendorCreate) so users get
+// immediate, field-level feedback instead of a raw 422 after the final submit.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+// Normalise an Indian mobile to 10 digits (strips +91 / leading 0 / spaces),
+// returning null when it can't reduce to a valid 6-9-leading 10-digit number.
+const normalizeMobile = (raw: string): string | null => {
+  let cleaned = raw.replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('91')) cleaned = cleaned.slice(2);
+  if (cleaned.length === 11 && cleaned.startsWith('0')) cleaned = cleaned.slice(1);
+  if (cleaned.length !== 10 || !/^[6-9]/.test(cleaned)) return null;
+  return cleaned;
+};
 
 const STATES = [
   { code: '35', name: 'Andaman and Nicobar Islands' },
@@ -49,8 +67,11 @@ type Step = 'basic' | 'kyc' | 'bank' | 'documents';
 export const VendorRegisterPage: React.FC = () => {
   useDocumentTitle('Become a Vendor — LaserHub');
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [step, setStep] = useState<Step>('basic');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     shop_name: '',
     business_email: '',
@@ -71,6 +92,8 @@ export const VendorRegisterPage: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    // Clear any existing error for the field being edited.
+    setErrors(prev => (prev[name] ? { ...prev, [name]: '' } : prev));
     if (name === 'state') {
       const stateObj = STATES.find(s => s.name === value);
       setForm(prev => ({ ...prev, state: value, state_code: stateObj?.code || '' }));
@@ -79,51 +102,120 @@ export const VendorRegisterPage: React.FC = () => {
     }
   };
 
-  const handleNext = () => {
-    if (step === 'basic') {
-      if (!form.shop_name || !form.business_email || !form.mobile_number) {
-        toast.error('Please fill required fields');
-        return;
-      }
-      setStep('kyc');
-    } else if (step === 'kyc') {
-      if (!form.gstin || !form.business_address || !form.state) {
-        toast.error('Please fill required fields');
-        return;
-      }
-      setStep('bank');
-    } else if (step === 'bank') {
-      setStep('documents');
+  // Validate only the fields belonging to the given step. Returns a map of
+  // field -> error message (empty map == valid).
+  const validateStep = (target: Step): Record<string, string> => {
+    const e: Record<string, string> = {};
+    if (target === 'basic') {
+      if (!form.shop_name.trim()) e.shop_name = 'Shop name is required';
+      if (!form.business_email.trim()) e.business_email = 'Business email is required';
+      else if (!EMAIL_RE.test(form.business_email.trim())) e.business_email = 'Enter a valid email address';
+      if (!form.mobile_number.trim()) e.mobile_number = 'Mobile number is required';
+      else if (!normalizeMobile(form.mobile_number)) e.mobile_number = 'Enter a valid 10-digit Indian mobile (starts 6-9)';
+    } else if (target === 'kyc') {
+      if (!form.gstin.trim()) e.gstin = 'GSTIN is required';
+      else if (!GSTIN_RE.test(form.gstin.trim().toUpperCase())) e.gstin = 'Invalid GSTIN (e.g. 29ABCDE1234F1Z5)';
+      if (form.pan.trim() && !PAN_RE.test(form.pan.trim().toUpperCase())) e.pan = 'Invalid PAN (e.g. ABCDE1234F)';
+      if (!form.business_address.trim()) e.business_address = 'Business address is required';
+      if (!form.state) e.state = 'Select a state';
     }
+    return e;
+  };
+
+  const handleNext = () => {
+    const stepErrors = validateStep(step);
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors);
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
+    setErrors({});
+    if (step === 'basic') setStep('kyc');
+    else if (step === 'kyc') setStep('bank');
+    else if (step === 'bank') setStep('documents');
+  };
+
+  const redirectToLogin = () => {
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    navigate(`/login?returnTo=${returnTo}`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Re-validate every required step before submitting — guards against
+    // jumping back and clearing a field, or browser autofill quirks.
+    const allErrors = { ...validateStep('basic'), ...validateStep('kyc') };
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      // Send the user to the earliest step that has an error.
+      const basicErr = validateStep('basic');
+      setStep(Object.keys(basicErr).length > 0 ? 'basic' : 'kyc');
+      toast.error('Please complete all required fields');
+      return;
+    }
+
+    // Vendor registration is authenticated (backend derives user_id from the
+    // JWT). Prompt login rather than letting the request fail with a raw 401.
+    if (!isAuthenticated) {
+      toast.error('Please log in to complete vendor registration');
+      redirectToLogin();
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // 1. Register vendor
-      const vendor = await vendorApi.registerVendor(0, { // ID 0 because service derives from token
-        shop_name: form.shop_name,
-        business_email: form.business_email,
-        mobile_number: form.mobile_number,
-        gstin: form.gstin,
-        pan: form.pan,
-        business_address: form.business_address,
+      // 1. Register vendor. Backend route is POST /api/vendors/register and
+      // derives the user from the bearer token — there is no user id in the path.
+      const payload = {
+        shop_name: form.shop_name.trim(),
+        business_email: form.business_email.trim(),
+        mobile_number: normalizeMobile(form.mobile_number) || form.mobile_number.trim(),
+        gstin: form.gstin.trim().toUpperCase(),
+        pan: form.pan.trim() ? form.pan.trim().toUpperCase() : undefined,
+        business_address: form.business_address.trim(),
         state: form.state,
         state_code: form.state_code,
-        description: form.description,
-        website: form.website,
-      } as any);
+        description: form.description.trim() || undefined,
+        website: form.website.trim() || undefined,
+      };
+      await api.post('/vendors/register', payload);
 
-      // 2. Upload GST certificate if present
+      // 2. Upload GST certificate if present (best-effort; don't block the
+      // success path if the asset upload alone fails).
       if (gstFile) {
-        await vendorApi.uploadAsset(gstFile, 'gst');
+        try {
+          await vendorApi.uploadAsset(gstFile, 'gst');
+        } catch {
+          toast.warning('Registered, but the GST certificate upload failed. You can re-upload it from your dashboard.');
+        }
       }
 
       toast.success('Registration submitted! Redirecting to dashboard...');
       setTimeout(() => navigate('/vendor/dashboard'), 1500);
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Registration failed. Please try again.');
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      if (status === 401) {
+        toast.error('Your session expired. Please log in again.');
+        redirectToLogin();
+      } else if (status === 400 && typeof detail === 'string') {
+        // e.g. "Shop name already taken" / "Already registered as vendor"
+        toast.error(detail);
+        if (/shop name/i.test(detail)) {
+          setErrors({ shop_name: detail });
+          setStep('basic');
+        } else if (/already registered/i.test(detail)) {
+          // Already a vendor — send them to their dashboard instead of a dead end.
+          setTimeout(() => navigate('/vendor/dashboard'), 1200);
+        }
+      } else if (status === 422 && Array.isArray(detail)) {
+        // Pydantic validation error — surface the first message.
+        const first = detail[0];
+        toast.error(first?.msg || 'Some fields are invalid. Please review and retry.');
+      } else {
+        toast.error(typeof detail === 'string' ? detail : 'Registration failed. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -164,6 +256,14 @@ export const VendorRegisterPage: React.FC = () => {
 
         {renderStepIndicator()}
 
+        {!isAuthenticated && (
+          <div className="vr-auth-notice">
+            <LogIn size={16} />
+            <span>You'll need to be logged in to submit. </span>
+            <button type="button" className="vr-auth-link" onClick={redirectToLogin}>Log in or create an account</button>
+          </div>
+        )}
+
         <div className="vr-card">
           <form onSubmit={handleSubmit}>
             {step === 'basic' && (
@@ -171,16 +271,19 @@ export const VendorRegisterPage: React.FC = () => {
                 <h3>Business Information</h3>
                 <div className="form-group">
                   <label>Shop Name *</label>
-                  <input name="shop_name" value={form.shop_name} onChange={handleChange} placeholder="e.g. Precision Laser Tech" required />
+                  <input name="shop_name" value={form.shop_name} onChange={handleChange} placeholder="e.g. Precision Laser Tech" className={errors.shop_name ? 'has-error' : ''} required />
+                  {errors.shop_name && <span className="vr-error">{errors.shop_name}</span>}
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Business Email *</label>
-                    <input name="business_email" type="email" value={form.business_email} onChange={handleChange} placeholder="contact@shop.com" required />
+                    <input name="business_email" type="email" value={form.business_email} onChange={handleChange} placeholder="contact@shop.com" className={errors.business_email ? 'has-error' : ''} required />
+                    {errors.business_email && <span className="vr-error">{errors.business_email}</span>}
                   </div>
                   <div className="form-group">
                     <label>Mobile Number *</label>
-                    <input name="mobile_number" value={form.mobile_number} onChange={handleChange} placeholder="9876543210" required />
+                    <input name="mobile_number" value={form.mobile_number} onChange={handleChange} placeholder="9876543210" className={errors.mobile_number ? 'has-error' : ''} required />
+                    {errors.mobile_number && <span className="vr-error">{errors.mobile_number}</span>}
                   </div>
                 </div>
                 <div className="form-group">
@@ -203,23 +306,27 @@ export const VendorRegisterPage: React.FC = () => {
                 <div className="form-row">
                   <div className="form-group">
                     <label>GSTIN *</label>
-                    <input name="gstin" value={form.gstin} onChange={handleChange} placeholder="15-digit GST number" required />
+                    <input name="gstin" value={form.gstin} onChange={handleChange} placeholder="15-digit GST number" className={errors.gstin ? 'has-error' : ''} required />
+                    {errors.gstin && <span className="vr-error">{errors.gstin}</span>}
                   </div>
                   <div className="form-group">
                     <label>PAN (Optional)</label>
-                    <input name="pan" value={form.pan} onChange={handleChange} placeholder="Business or Personal PAN" />
+                    <input name="pan" value={form.pan} onChange={handleChange} placeholder="Business or Personal PAN" className={errors.pan ? 'has-error' : ''} />
+                    {errors.pan && <span className="vr-error">{errors.pan}</span>}
                   </div>
                 </div>
                 <div className="form-group">
                   <label>Business Address *</label>
-                  <textarea name="business_address" value={form.business_address} onChange={handleChange} placeholder="Full address as per GST record" required rows={2} />
+                  <textarea name="business_address" value={form.business_address} onChange={handleChange} placeholder="Full address as per GST record" className={errors.business_address ? 'has-error' : ''} required rows={2} />
+                  {errors.business_address && <span className="vr-error">{errors.business_address}</span>}
                 </div>
                 <div className="form-group">
                   <label>State *</label>
-                  <select name="state" value={form.state} onChange={handleChange} required>
+                  <select name="state" value={form.state} onChange={handleChange} className={errors.state ? 'has-error' : ''} required>
                     <option value="">Select State</option>
                     {STATES.map(s => <option key={s.code} value={s.name}>{s.name}</option>)}
                   </select>
+                  {errors.state && <span className="vr-error">{errors.state}</span>}
                 </div>
                 <div className="vr-actions">
                   <button type="button" className="vr-prev-btn" onClick={() => setStep('basic')}>Back</button>
@@ -363,7 +470,33 @@ export const VendorRegisterPage: React.FC = () => {
           transition: border-color 0.2s;
         }
         input:focus, textarea:focus, select:focus { outline: none; border-color: #0ea5e9; }
-        
+        input.has-error, textarea.has-error, select.has-error { border-color: #ef4444; }
+        .vr-error { display: block; color: #f87171; font-size: 0.75rem; margin-top: 0.375rem; }
+
+        .vr-auth-notice {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.4rem;
+          background: rgba(234, 179, 8, 0.08);
+          border: 1px solid rgba(234, 179, 8, 0.3);
+          color: #fde68a;
+          border-radius: 10px;
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+          margin-bottom: 1.5rem;
+        }
+        .vr-auth-link {
+          background: none;
+          border: none;
+          color: #38bdf8;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0;
+          text-decoration: underline;
+          font-size: 0.875rem;
+        }
+
         .vr-next-btn, .vr-submit-btn {
           width: 100%;
           background: #0ea5e9;

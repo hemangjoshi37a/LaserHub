@@ -104,6 +104,80 @@
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.2);
   --nav-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   --focus-ring: 0 0 0 2px rgba(59, 130, 246, 0.35);
+
+  /* Default surface = dark (matches the original look when no data-theme set) */
+  color-scheme: dark;
+}
+
+/* ===== Explicit Dark theme ===== */
+/* Mirrors the bare :root values so data-theme="dark" is authoritative. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.55), 0 8px 10px -6px rgba(0, 0, 0, 0.35);
+
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --border-color: #334155;
+  --card-bg: #1e293b;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.2);
+  --nav-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --focus-ring: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+/* ===== Light theme ===== */
+/* Overrides every palette var the dark :root defines, so the UI actually
+   renders light. Semantic accent colors are kept; only surfaces/text flip. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Soft tints need a touch more opacity to read on white surfaces */
+  --color-primary: #0284c7;
+  --color-primary-hover: #0369a1;
+  --color-primary-fg: #ffffff;
+  --color-primary-soft: rgba(2, 132, 199, 0.12);
+  --color-success-soft: rgba(16, 185, 129, 0.12);
+  --color-warning-soft: rgba(217, 119, 6, 0.14);
+  --color-danger-soft: rgba(220, 38, 38, 0.12);
+  --color-info-soft: rgba(37, 99, 235, 0.12);
+  --color-neutral-soft: rgba(100, 116, 139, 0.14);
+
+  /* Shadows softened for light backgrounds */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.10), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -4px rgba(15, 23, 42, 0.08);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+
+  /* Palette */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --border-color: #e2e8f0;
+  --accent-color: #0284c7;
+  --accent-hover: #0369a1;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 8px rgba(15, 23, 42, 0.08);
+  --nav-bg: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  --focus-ring: 0 0 0 2px rgba(2, 132, 199, 0.35);
+}
+
+/* index.css hardcodes `html, body { background-color: #0f172a }`. Re-bind the
+   base surfaces to the active palette with a higher-specificity selector so the
+   theme actually flips the document background + text. */
+:root[data-theme] body,
+html[data-theme] body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 * {
@@ -1754,3 +1828,38 @@ main:focus {
 
 .text-danger { color: var(--color-danger); }
 .text-warning { color: var(--color-warning); }
+
+/* ===== Theme toggle button (navbar) ===== */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  /* The navbar is always dark (hardcoded bg), so use a FIXED light color — a
+     theme var flips dark in light mode and vanishes against the dark navbar. */
+  color: #cbd5e1;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+/* The global `img,video,svg { height:auto }` reset collapses this flexed lucide
+   icon to ~2px — force its real size so the theme toggle is actually visible. */
+.theme-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+  max-width: none;
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

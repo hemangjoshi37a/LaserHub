@@ -2,14 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, MapPin, Search, BadgeCheck, SearchX } from 'lucide-react';
 import { api } from '../services/api';
-import { Avatar, Badge, EmptyState, PageHeader } from '../components/ui';
+import { Avatar, EmptyState, PageHeader } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
+// On-brand banner gradient used as a fallback when a vendor has no cover image.
+// Stays within the app's slate/sky dark palette (rather than a random saturated
+// hue) so the header reads as an intentional branded band, not a stray void.
 const gradientFor = (id: number): string => {
-  const hue = (id * 137) % 360;
-  return `linear-gradient(135deg, hsl(${hue},70%,55%), hsl(${(hue + 60) % 360},70%,45%))`;
+  const hue = 200 + ((id * 47) % 40); // 200–239: cyan→blue band, always on-theme
+  return `linear-gradient(135deg, hsl(${hue},45%,24%) 0%, hsl(${hue + 18},40%,15%) 100%)`;
 };
 
 interface Vendor {
@@ -26,24 +29,6 @@ interface Vendor {
   is_verified?: boolean;
   specialties?: string[];
 }
-
-const RatingStars: React.FC<{ rating: number }> = ({ rating }) => (
-  <span className="vendor-rating-stars">
-    {Array.from({ length: 5 }, (_, i) => {
-      const filled = rating >= i + 1;
-      return (
-        <Star
-          key={i}
-          size={12}
-          fill={filled ? '#f59e0b' : 'none'}
-          stroke={filled ? '#f59e0b' : 'currentColor'}
-          strokeWidth={filled ? 0 : 1.5}
-          className={filled ? 'star-filled' : 'star-empty'}
-        />
-      );
-    })}
-  </span>
-);
 
 export const VendorsPage: React.FC = () => {
   useDocumentTitle('Laser Cutting Vendors — LaserHub');
@@ -185,31 +170,75 @@ export const VendorsPage: React.FC = () => {
         />
       ) : (
         <div className="mp-vendor-grid public-vendor-grid">
-          {filtered.map((v) => (
+          {filtered.map((v) => {
+            const hasBanner = !!v.banner_url;
+            return (
             <Link key={v.id} to={`/vendor/${v.slug}`} className="public-vendor-card">
-              <div className="vendor-card-banner">
-                {v.banner_url ? (
-                  <img src={v.banner_url} alt="" />
-                ) : (
-                  <div style={{ background: gradientFor(v.id), height: '100%' }} />
-                )}
-                <div className="vendor-card-logo-overlap">
-                  <Avatar
-                    src={v.logo_url}
-                    name={v.shop_name}
-                    size={56}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: 0,
-                      background: '#fff',
-                      fontSize: 20
-                    }}
-                  />
+              {hasBanner ? (
+                // Vendor has a real cover image: keep the full banner + corner logo.
+                <div className="vendor-card-banner">
+                  <img src={v.banner_url!} alt="" />
+                  <div className="vendor-card-logo-overlap">
+                    <Avatar
+                      src={v.logo_url}
+                      name={v.shop_name}
+                      size={56}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: 0,
+                        background: '#fff',
+                        fontSize: 20,
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-              
-              <div className="vendor-card-content">
+              ) : (
+                // No cover image: collapse the empty banner into a compact branded
+                // band with a centered logo/initials medallion so the card header
+                // looks intentional instead of a large blank void.
+                <div
+                  className="vendor-card-banner"
+                  // overflow:visible so the medallion (which intentionally straddles
+                  // below the band via bottom:-22) isn't clipped by the banner's
+                  // default overflow:hidden (that clip is only needed for cover imgs).
+                  style={{ height: 64, width: '100%', background: gradientFor(v.id), overflow: 'visible' }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 20,
+                      bottom: -22,
+                      width: 52,
+                      height: 52,
+                      borderRadius: 12,
+                      border: '3px solid var(--bg-primary)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Avatar
+                      src={v.logo_url}
+                      name={v.shop_name}
+                      size={52}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: 0,
+                        background: 'var(--bg-tertiary)',
+                        color: 'var(--text-primary)',
+                        fontSize: 18,
+                        fontWeight: 700,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="vendor-card-content"
+                style={hasBanner ? undefined : { paddingTop: 32 }}
+              >
                 <div className="vendor-card-header">
                   <div className="vendor-card-title">
                     <h4>{v.shop_name}</h4>
@@ -246,7 +275,8 @@ export const VendorsPage: React.FC = () => {
                 </div>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

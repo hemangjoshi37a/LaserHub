@@ -305,17 +305,24 @@ async def add_order_event(
     await db.commit()
     await db.refresh(event)
 
-    # Push notification to customer
+    # Notify the buyer (persisted in-app notification + best-effort push)
     if order.user_id:
-        title = f"Order {order.order_number} update"
-        msg = body.message or body.event_type.replace("_", " ").title()
-        background_tasks.add_task(
-            send_push_notification_bg,
-            user_id=order.user_id,
-            title=title,
-            body=msg,
-            url=f"/admin/my-orders",
+        from app.services.notification_service import notify_user, order_status_message
+        mapped = order_status_message(new_status) if new_status else None
+        if mapped:
+            msg, ntype = mapped
+        else:
+            msg = body.message or body.event_type.replace("_", " ").title()
+            ntype = "info"
+        await notify_user(
+            db,
+            order.user_id,
+            f"Order #{order.order_number}",
+            msg,
+            type=ntype,
+            link="/dashboard/my-orders",
         )
+        await db.commit()
 
     # Optional email notification
     try:

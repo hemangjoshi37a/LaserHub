@@ -88,6 +88,19 @@ export const BillingAddressBook: React.FC = () => {
     return <MapPin size={14} />;
   };
 
+  // Derive a distinguishable title for an address. Prefer the user-set label,
+  // then fall back to recipient name, first address line, "City, State", or
+  // postal code — anything but the generic word "Address".
+  const addressTitle = (addr: BillingAddress): string => {
+    if (addr.label && addr.label.trim()) return addr.label.trim();
+    if (addr.name && addr.name.trim()) return addr.name.trim();
+    if (addr.address_line_1 && addr.address_line_1.trim()) return addr.address_line_1.trim();
+    const cityState = [addr.city, addr.state].filter((p) => p && p.trim()).join(', ');
+    if (cityState) return cityState;
+    if (addr.postal_code && addr.postal_code.trim()) return addr.postal_code.trim();
+    return 'Address';
+  };
+
   return (
     <div className="adm-page animate-in">
       <header className="adm-page-header">
@@ -127,6 +140,9 @@ export const BillingAddressBook: React.FC = () => {
         <div className="bab-grid">
           {addresses.map((addr) => {
             const isBusy = busyId === addr.id;
+            const title = addressTitle(addr);
+            // Avoid repeating the recipient name when it's already the title.
+            const showName = !!(addr.name && addr.name.trim() && addr.name.trim() !== title);
             return (
               <div
                 key={addr.id}
@@ -135,7 +151,7 @@ export const BillingAddressBook: React.FC = () => {
                 <div className="bab-card-head">
                   <span className="bab-badge-label">
                     {labelIcon(addr.label)}
-                    {addr.label || 'Address'}
+                    {title}
                   </span>
                   {addr.is_default && (
                     <span className="bab-badge-default">
@@ -149,7 +165,7 @@ export const BillingAddressBook: React.FC = () => {
                   )}
                 </div>
 
-                <div className="bab-card-name">{addr.name}</div>
+                {showName && <div className="bab-card-name">{addr.name}</div>}
                 <div className="bab-card-address">
                   {addr.address_line_1}
                   {addr.address_line_2 ? `, ${addr.address_line_2}` : ''}

@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
 // Stripe and Razorpay are loaded dynamically only when needed to prevent
 // console clutter and tracking prevention warnings on non-payment pages.
-import { formatPrice } from '../utils/formatPrice';
+import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 
 // ---------------------------------------------------------------------------
 // Stripe initialisation — null when key is missing / test placeholder
@@ -75,6 +75,7 @@ interface CheckoutFormProps {
 const StripeCheckoutForm: React.FC<CheckoutFormProps & { stripeLib: any }> = ({ amount, onSuccess, stripeLib }) => {
   const stripe = stripeLib.useStripe();
   const elements = stripeLib.useElements();
+  const { currency } = useCurrencyStore();
   const [processing, setProcessing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,7 +109,7 @@ const StripeCheckoutForm: React.FC<CheckoutFormProps & { stripeLib: any }> = ({ 
         </div>
       </div>
       <button type="submit" disabled={!stripe || processing} className="pay-btn">
-        {processing ? 'Processing…' : `Pay $${amount.toFixed(2)} with Stripe`}
+        {processing ? 'Processing…' : `Pay ${formatPrice(amount, currency)} with Stripe`}
       </button>
     </form>
   );
@@ -125,6 +126,8 @@ interface OrderFormProps {
 export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
   const { costEstimate, resetState, selectedMaterial, selectedVendor } = useAppStore();
   const { isAuthenticated, user } = useAuthStore();
+  const { currency } = useCurrencyStore();
+  const fp = (usd: number) => formatPrice(usd, currency);
   const [formData, setFormData] = useState({
     customer_name: user?.name || '',
     customer_email: user?.email || '',
@@ -191,6 +194,18 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
       loadRazorpayScript().catch(() => {/* silent */});
     }
   }, [razorpayConfigured]);
+
+  // Lazily loaded Stripe library + Elements provider. Declared here at the top
+  // level (NOT inside the `if (createdOrder)` branch) so the hook order stays
+  // identical on every render — moving it into the conditional payment screen
+  // violated the Rules of Hooks and crashed checkout once an order was created.
+  const [stripeLib, setStripeLib] = useState<any>(null);
+
+  useEffect(() => {
+    if (createdOrder && isValidStripeKey(STRIPE_KEY)) {
+      getStripeModules().then(setStripeLib);
+    }
+  }, [createdOrder]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,13 +332,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
   // ---- Payment screen (order created, choose payment method) ----
   if (createdOrder) {
     const amount = createdOrder.total_amount;
-    const [stripeLib, setStripeLib] = useState<any>(null);
-
-    useEffect(() => {
-      if (isValidStripeKey(STRIPE_KEY)) {
-        getStripeModules().then(setStripeLib);
-      }
-    }, []);
 
     return (
       <div className="payment-container">
@@ -331,7 +339,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
         <div className="order-summary">
           <h3>Order Summary</h3>
           <p>Order #: {createdOrder.order_number}</p>
-          <p>Total: {formatPrice(amount)}</p>
+          <p>Total: {fp(amount)}</p>
           {guestTrackingToken && (
             <div style={{
               marginTop: '0.5rem', padding: '0.5rem 0.75rem',
@@ -394,7 +402,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
                 height={16}
                 style={{ borderRadius: 2 }}
               />
-              {razorpayLoading ? 'Opening Razorpay…' : `Pay $${amount.toFixed(2)} with Razorpay`}
+              {razorpayLoading ? 'Opening Razorpay…' : `Pay ${fp(amount)} with Razorpay`}
             </button>
           </div>
         ) : null}
@@ -491,9 +499,9 @@ export const OrderForm: React.FC<OrderFormProps> = ({ onSuccess }) => {
 
         {costEstimate && (
           <div className="order-total order-total-compact">
-            <span>Subtotal: {formatPrice(costEstimate.breakdown.subtotal)}</span>
-            <span>Tax: {formatPrice(costEstimate.breakdown.tax)}</span>
-            <strong>Total: {formatPrice(costEstimate.breakdown.total)}</strong>
+            <span>Subtotal: {fp(costEstimate.breakdown.subtotal)}</span>
+            <span>Tax: {fp(costEstimate.breakdown.tax)}</span>
+            <strong>Total: {fp(costEstimate.breakdown.total)}</strong>
           </div>
         )}
 

@@ -22,6 +22,64 @@ class TagsUpdate(BaseModel):
 router = APIRouter()
 
 
+# File types we can render directly inline as an image preview (no conversion).
+_INLINE_PREVIEW_TYPES = {"svg", "png", "jpg", "jpeg"}
+# Vector types the upload service can rasterize/convert to an inline SVG preview.
+_CONVERTIBLE_PREVIEW_TYPES = {"dxf", "eps", "ai", "pdf"}
+
+
+def _file_preview_url(uploaded_file: Optional[UploadedFile]) -> Optional[str]:
+    """Derive a usable, relative preview URL for a design's linked uploaded file.
+
+    Returns a path (e.g. ``/api/upload/<uuid>/raw``) — NOT an absolute URL — to
+    mirror the existing ``/static/...`` thumbnail convention. Marketplace's
+    ``_abs_thumb`` (and the frontend) turn relative paths into absolute ones.
+
+    - SVG / raster images -> served inline via the ``/raw`` route (no conversion).
+    - DXF / EPS / AI / PDF -> converted to an inline SVG via the ``/svg`` route.
+    - Anything else (or no linked file) -> ``None`` so the frontend shows its
+      own branded placeholder instead of a broken image.
+    """
+    if uploaded_file is None or not getattr(uploaded_file, "file_id", None):
+        return None
+    ftype = (uploaded_file.file_type or "").lower()
+    if ftype in _INLINE_PREVIEW_TYPES:
+        return f"/api/upload/{uploaded_file.file_id}/raw"
+    if ftype in _CONVERTIBLE_PREVIEW_TYPES:
+        return f"/api/upload/{uploaded_file.file_id}/svg"
+    return None
+
+
+async def _backfill_design_thumbnails(db: AsyncSession, designs: List[Design]) -> None:
+    """Populate ``thumbnail_url`` for designs that lack one but have a linked file.
+
+    This persists the derived preview URL onto the ``designs.thumbnail_url``
+    column so every consumer of that column (marketplace browse/featured/detail,
+    dashboards, this API) renders a real preview — for existing designs too, not
+    just newly created ones. Designs with an explicit thumbnail are left intact;
+    designs whose source file can't be previewed keep ``thumbnail_url`` null.
+    """
+    missing = [d for d in designs if not d.thumbnail_url and d.file_id is not None]
+    if not missing:
+        return
+
+    file_pks = {d.file_id for d in missing}
+    rows = await db.execute(
+        select(UploadedFile).where(UploadedFile.id.in_(file_pks))
+    )
+    files_by_pk = {f.id: f for f in rows.scalars().all()}
+
+    changed = False
+    for d in missing:
+        url = _file_preview_url(files_by_pk.get(d.file_id))
+        if url:
+            d.thumbnail_url = url
+            changed = True
+
+    if changed:
+        await db.commit()
+
+
 @router.post("/")
 async def create_design(
     design_data: DesignCreate,
@@ -52,6 +110,9 @@ async def create_design(
         category=design_data.category,
         tags=json.dumps(design_data.tags) if design_data.tags else None,
         is_public=design_data.is_public,
+        # Auto-derive a preview from the linked file so the design renders a real
+        # thumbnail everywhere immediately (None for non-previewable file types).
+        thumbnail_url=_file_preview_url(uploaded_file),
     )
 
     db.add(design)
@@ -62,6 +123,7 @@ async def create_design(
         "id": design.id,
         "title": design.title,
         "is_public": design.is_public,
+        "thumbnail_url": design.thumbnail_url,
         "created_at": design.created_at,
     }
 
@@ -134,12 +196,17 @@ async def get_my_designs(
     result = await db.execute(
         select(Design).where(Design.creator_id == current_user.id).order_by(Design.created_at.desc())
     )
-    designs = result.scalars().all()
+    designs = list(result.scalars().all())
+
+    # Backfill missing previews from linked files so existing designs get a real
+    # thumbnail (also persists to the column, fixing marketplace/browse views).
+    await _backfill_design_thumbnails(db, designs)
 
     return [
         {
             "id": d.id, "title": d.title, "description": d.description,
             "category": d.category, "is_public": d.is_public,
+            "thumbnail_url": d.thumbnail_url,
             "tags": json.loads(d.tags) if d.tags else [],
             "likes_count": d.likes_count, "downloads_count": d.downloads_count,
             "created_at": d.created_at,

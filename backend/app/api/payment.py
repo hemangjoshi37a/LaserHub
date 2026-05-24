@@ -71,8 +71,11 @@ async def create_payment_intent(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception("payment.create_intent_failed", order_id=payment_data.order_id)
+    except Exception:
+        logger.exception(
+            "payment.create_intent_failed",
+            extra={"order_id": payment_data.order_id},
+        )
         raise HTTPException(
             status_code=502,
             detail="Payment provider error. Please try again.",
@@ -132,8 +135,11 @@ async def create_razorpay_order(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception("payment.create_razorpay_order_failed", order_id=payment_data.order_id)
+    except Exception:
+        logger.exception(
+            "payment.create_razorpay_order_failed",
+            extra={"order_id": payment_data.order_id},
+        )
         raise HTTPException(
             status_code=502,
             detail="Payment provider error. Please try again.",

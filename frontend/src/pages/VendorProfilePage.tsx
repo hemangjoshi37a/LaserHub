@@ -14,39 +14,18 @@ import {
   ShoppingBag,
   Phone,
   Globe,
-  FileText,
-  Store,
   ShieldCheck,
-  MapPinned,
   CreditCard,
   ExternalLink,
-  ImageIcon,
 } from 'lucide-react';
 import { marketplaceApi, vendorApi, VendorProfile, VendorMaterialItem, VendorListingItem } from '../services/index';
 import { useCurrencyStore, formatPrice } from '../store/currencyStore';
-import { Avatar, Button, EmptyState, PageHeader } from '../components/ui';
+import { Avatar, Button, EmptyState } from '../components/ui';
 import { Skeleton } from '../components/Skeleton';
 import { ErrorState } from '../components/ErrorState';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type Tab = 'materials' | 'listings' | 'reviews' | 'details' | 'about';
-type DetailsSubTab = 'platform' | 'gmb';
-
-// Relative time helper — keeps us off date-fns
-function relativeTime(iso?: string): string {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
-  if (diffSec < 60) return 'just now';
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
-  return `on ${new Date(iso).toLocaleDateString()}`;
-}
 
 interface ReviewItem {
   id: number;
@@ -81,7 +60,6 @@ export const VendorProfilePage: React.FC = () => {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [listings, setListings] = useState<VendorListingItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('materials');
-  const [detailsSubTab, setDetailsSubTab] = useState<DetailsSubTab>('platform');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -173,31 +151,13 @@ export const VendorProfilePage: React.FC = () => {
     { id: 'about', label: 'About', icon: <Info size={16} /> },
   ];
 
-  const hasPlatformInfo = !!(
-    vendor.phone_number ||
-    vendor.business_email ||
+  const hasContactInfo = !!(
     vendor.website ||
+    vendor.business_email ||
+    vendor.phone_number ||
     vendor.business_address ||
-    vendor.gst_number ||
-    vendor.logo_url ||
-    vendor.storefront_image_url
+    vendor.location
   );
-
-  const hasGmbInfo = !!(
-    vendor.gmb_place_id ||
-    vendor.gmb_name ||
-    vendor.gmb_phone ||
-    vendor.gmb_address ||
-    vendor.gmb_website ||
-    vendor.gmb_rating != null ||
-    vendor.gmb_maps_url
-  );
-
-  const gmbMapsHref =
-    vendor.gmb_maps_url ||
-    (vendor.gmb_place_id
-      ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(vendor.gmb_place_id)}`
-      : null);
 
   return (
     <div className="bv-vendor-profile public-page">
@@ -206,11 +166,9 @@ export const VendorProfilePage: React.FC = () => {
         {vendor.banner_url ? (
           <img src={vendor.banner_url} alt="" />
         ) : (
-          <div style={{ 
-            background: `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)`,
-            height: '100%',
-            opacity: 0.1
-          }} />
+          <div className="bv-vendor-hero-fallback">
+            <span className="bv-vendor-hero-fallback-name">{vendor.shop_name}</span>
+          </div>
         )}
       </div>
 
@@ -218,11 +176,11 @@ export const VendorProfilePage: React.FC = () => {
       <div className="bv-vendor-profile-header">
         <div className="bv-vendor-profile-card">
           <div className="bv-vendor-profile-logo">
-            <Avatar 
-              src={vendor.logo_url} 
-              name={vendor.shop_name} 
+            <Avatar
+              src={vendor.logo_url}
+              name={vendor.shop_name}
               size={124}
-              style={{ width: '100%', height: '100%', borderRadius: '12px' }}
+              className="bv-vendor-profile-avatar"
             />
           </div>
           
@@ -425,32 +383,96 @@ export const VendorProfilePage: React.FC = () => {
               <h3 className="card-title">Contact Information</h3>
             </div>
             <div className="card-body">
-              <div className="vd-info-list">
-                {vendor.business_email && (
-                  <div className="vd-info-item">
-                    <Mail size={16} />
-                    <div className="value">{vendor.business_email}</div>
-                  </div>
-                )}
-                {vendor.phone_number && (
-                  <div className="vd-info-item">
-                    <Phone size={16} />
-                    <div className="value">{vendor.phone_number}</div>
-                  </div>
-                )}
-                {vendor.business_address && (
-                  <div className="vd-info-item">
-                    <MapPin size={16} />
-                    <div className="value" style={{ fontSize: '0.85rem' }}>{vendor.business_address}</div>
-                  </div>
-                )}
-              </div>
+              {hasContactInfo ? (
+                <div className="vd-info-list">
+                  {vendor.website && (
+                    <div className="vd-info-item">
+                      <Globe size={16} />
+                      <a
+                        href={vendor.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="value vd-info-link"
+                      >
+                        {vendor.website.replace(/^https?:\/\//, '')}
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  )}
+                  {vendor.business_email && (
+                    <div className="vd-info-item">
+                      <Mail size={16} />
+                      <a href={`mailto:${vendor.business_email}`} className="value vd-info-link">
+                        {vendor.business_email}
+                      </a>
+                    </div>
+                  )}
+                  {vendor.phone_number && (
+                    <div className="vd-info-item">
+                      <Phone size={16} />
+                      <a href={`tel:${vendor.phone_number}`} className="value vd-info-link">
+                        {vendor.phone_number}
+                      </a>
+                    </div>
+                  )}
+                  {vendor.business_address && (
+                    <div className="vd-info-item">
+                      <MapPin size={16} />
+                      <div className="value" style={{ fontSize: '0.85rem' }}>{vendor.business_address}</div>
+                    </div>
+                  )}
+                  {!vendor.business_address && vendor.location && (
+                    <div className="vd-info-item">
+                      <MapPin size={16} />
+                      <div className="value">{vendor.location}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="vd-contact-empty">No contact details provided.</p>
+              )}
             </div>
           </div>
         </aside>
       </div>
 
       <style>{`
+        /* Vendor logo medallion: override shared .ui-avatar so the logo/initials
+           fill the rounded container fully, centered, without clipping.
+           (The shared base lives in styles/ui-primitives.css — see report.) */
+        .bv-vendor-profile-logo .bv-vendor-profile-avatar {
+          width: 100%;
+          height: 100%;
+          border-radius: 12px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--color-primary-soft, #1e293b);
+          border: none;
+          /* size={124} sets a 14px-ish base font; force a large glyph for initials */
+          font-size: 2.75rem;
+          line-height: 1;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+        }
+        .bv-vendor-profile-logo .bv-vendor-profile-avatar > span {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          font-size: inherit;
+          line-height: 1;
+        }
+        .bv-vendor-profile-logo .bv-vendor-profile-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
+          border-radius: 12px;
+          display: block;
+        }
         .vd-info-list {
           display: flex;
           flex-direction: column;
@@ -479,6 +501,40 @@ export const VendorProfilePage: React.FC = () => {
           font-size: 0.95rem;
           font-weight: 600;
           color: var(--text-primary);
+          word-break: break-word;
+        }
+        .vd-info-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          text-decoration: none;
+        }
+        .vd-info-link:hover {
+          color: var(--dash-accent);
+          text-decoration: underline;
+        }
+        .vd-contact-empty {
+          font-size: 0.9rem;
+          color: var(--text-tertiary);
+          margin: 0;
+        }
+        .bv-vendor-hero-fallback {
+          height: 100%;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        .bv-vendor-hero-fallback-name {
+          font-size: clamp(1.25rem, 4vw, 2.25rem);
+          font-weight: 800;
+          letter-spacing: 0.02em;
+          color: rgba(255, 255, 255, 0.18);
+          text-transform: uppercase;
+          user-select: none;
+          padding: 0 1rem;
+          text-align: center;
         }
         .mb-1 { margin-bottom: 1rem; }
         .mt-1 { margin-top: 1rem; }

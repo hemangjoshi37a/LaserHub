@@ -23,6 +23,23 @@ import { StatCard, RevenueChart } from '../components';
 
 const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'];
 
+const ChartEmptyState: React.FC<{ message?: string }> = ({ message = 'No data yet.' }) => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+      width: '100%',
+      color: 'var(--text-tertiary)',
+      fontSize: '0.85rem',
+      textAlign: 'center',
+    }}
+  >
+    {message}
+  </div>
+);
+
 type RangeKey = '7d' | '30d' | '90d' | 'all';
 
 const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
@@ -102,6 +119,9 @@ export const Analytics: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) =>
     });
   }, [data, range]);
 
+  const hasSalesData = (filteredSales?.length || 0) > 0;
+  const hasMaterialData = (data?.popular_materials?.length || 0) > 0;
+
   if (loading) {
     return (
       <div className="adm-loading">
@@ -162,13 +182,18 @@ export const Analytics: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) =>
         <div className="adm-card">
           <h3 className="adm-card-title">Revenue over Time</h3>
           <div className="adm-chart-container">
-            <RevenueChart data={filteredSales} />
+            {hasSalesData ? (
+              <RevenueChart data={filteredSales} />
+            ) : (
+              <ChartEmptyState />
+            )}
           </div>
         </div>
 
         <div className="adm-card">
           <h3 className="adm-card-title">Popular Materials</h3>
           <div className="adm-chart-container">
+            {hasMaterialData ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -208,6 +233,9 @@ export const Analytics: React.FC<{ vendorMode?: boolean }> = ({ vendorMode }) =>
                 />
               </PieChart>
             </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState />
+            )}
           </div>
         </div>
       </div>

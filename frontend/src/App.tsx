@@ -29,7 +29,6 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { BuyerDashboard } from './pages/BuyerDashboard';
 import { useAuthStore } from './store/authStore';
 import { useCurrencyStore } from './store/currencyStore';
 import { Navbar, NotificationPrompt } from './components';
@@ -63,8 +62,9 @@ function AppContent() {
 
 
   // We use the sidebar layout for sub-pages of dashboard, admin pages, and vendor dashboard.
-  // The root /dashboard page for customers now uses the standard landing layout.
-  const isDashboardLayout = (location.pathname.startsWith('/dashboard/') && location.pathname !== '/dashboard') || 
+  // The bare /dashboard route only renders a <Navigate> redirect to /dashboard/profile
+  // (handled in the landing layout below), so customers always land on the sidebar dashboard.
+  const isDashboardLayout = (location.pathname.startsWith('/dashboard/') && location.pathname !== '/dashboard') ||
                              location.pathname.startsWith('/admin') || 
                              location.pathname.startsWith('/vendor/dashboard');
 
@@ -102,7 +102,7 @@ function AppContent() {
           <div className="animate-in">
             <Routes>
               <Route path="/" element={<MarketplacePage />} />
-              <Route path="/dashboard" element={<ProtectedRoute><BuyerDashboard /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><Navigate to="/dashboard/profile" replace /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
               <Route path="/browse" element={<BrowseDesignsPage />} />
               <Route path="/vendors" element={<VendorsPage />} />

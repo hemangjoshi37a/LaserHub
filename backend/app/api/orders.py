@@ -120,28 +120,33 @@ async def create_order(
             vendor.total_orders = (vendor.total_orders or 0) + 1
             await db.commit()
 
+    # --- Site notifications (persisted + best-effort push) ---
+    from app.services.notification_service import notify_user
+
     # Notify the placing customer (if logged in) that their order was received
     if current_user_id:
-        from app.api.notifications import send_push_notification_bg
-        background_tasks.add_task(
-            send_push_notification_bg,
+        await notify_user(
+            db,
             current_user_id,
-            "Order Received",
+            f"Order placed — #{order.order_number}",
             f"Your order {order.order_number} has been placed successfully!",
-            "/profile",
+            type="success",
+            link="/dashboard/my-orders",
         )
 
     # Notify the assigned vendor (if any) that a new order needs their attention
     if vendor_order and vendor and vendor.user_id:
-        from app.api.notifications import send_push_notification_bg
         customer_label = order.customer_name or order.customer_email or "A customer"
-        background_tasks.add_task(
-            send_push_notification_bg,
+        await notify_user(
+            db,
             vendor.user_id,
-            "New Order",
+            f"New order #{order.order_number}",
             f"{customer_label} placed order {order.order_number} ({material.name} · {order.thickness_mm}mm × {order.quantity}).",
-            "/admin/orders",
+            type="info",
+            link="/vendor/dashboard/orders",
         )
+
+    await db.commit()
 
     # Return order with material name
     return OrderResponse(

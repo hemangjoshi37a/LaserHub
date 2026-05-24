@@ -598,44 +598,70 @@ def _parse_postscript_bbox(file_path: str) -> Dict[str, Any]:
 
 def _try_ghostscript_to_svg_parse(file_path: str) -> Dict[str, Any] | None:
     """
-    If ghostscript is available, convert the file to SVG via an intermediate
-    step and parse the resulting SVG for accurate dimensions / cut length.
-    Returns None if ghostscript is unavailable or the conversion fails.
+    Convert a PostScript-based vector file (EPS / legacy AI / PS) to SVG and
+    parse it for accurate geometry — real per-path cut length, not a bounding
+    box estimate. This gives EPS/AI the same pricing accuracy as native SVG.
+
+    Pipeline: ghostscript converts the file to PDF (vector-preserving, cropped
+    to the artwork), then pdftocairo (poppler) converts that PDF to SVG, which
+    we feed to parse_svg. We deliberately do NOT use ghostscript's old `svg`
+    device — it was removed in ghostscript >= 9.55 (10.x raises "Unknown
+    device: svg"), which is what made this path silently fail before.
+
+    Returns None if the required tools are unavailable or any step fails, so
+    callers fall back to the BoundingBox perimeter heuristic.
     """
     import shutil
     import tempfile
 
-    if not shutil.which("gs"):
+    gs = shutil.which("gs")
+    pdftocairo = shutil.which("pdftocairo")
+    if not gs or not pdftocairo:
         return None
 
+    tmp_pdf = None
+    tmp_svg = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp:
-            tmp_svg = tmp.name
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            tmp_pdf = f.name
+        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as f:
+            tmp_svg = f.name
 
-        # gs can produce SVG via the svg device (available in recent versions)
-        # Fallback: convert to PDF first, then use cairosvg
-        result = subprocess.run(
+        # Step 1: EPS/AI/PS -> PDF, cropped to the artwork bounding box so
+        # dimensions match the design (not a full page).
+        gs_proc = subprocess.run(
             [
-                "gs", "-dBATCH", "-dNOPAUSE", "-dQUIET",
-                "-sDEVICE=svg",
-                f"-sOutputFile={tmp_svg}",
-                file_path,
+                gs, "-dBATCH", "-dNOPAUSE", "-dQUIET", "-dEPSCrop",
+                "-sDEVICE=pdfwrite", f"-sOutputFile={tmp_pdf}", file_path,
             ],
             capture_output=True,
             timeout=30,
         )
-        if result.returncode == 0 and Path(tmp_svg).stat().st_size > 0:
-            parsed = parse_svg(tmp_svg)
-            return parsed
-    except (subprocess.TimeoutExpired, Exception) as exc:
-        logger.debug(f"Ghostscript SVG conversion failed: {exc}")
-    finally:
-        try:
-            Path(tmp_svg).unlink(missing_ok=True)
-        except Exception:
-            pass
+        if gs_proc.returncode != 0 or Path(tmp_pdf).stat().st_size == 0:
+            logger.debug("EPS->PDF (ghostscript) produced no output")
+            return None
 
-    return None
+        # Step 2: PDF -> SVG with vector paths preserved.
+        cairo_proc = subprocess.run(
+            [pdftocairo, "-svg", tmp_pdf, tmp_svg],
+            capture_output=True,
+            timeout=30,
+        )
+        if cairo_proc.returncode != 0 or Path(tmp_svg).stat().st_size == 0:
+            logger.debug("PDF->SVG (pdftocairo) produced no output")
+            return None
+
+        return parse_svg(tmp_svg)
+    except (subprocess.TimeoutExpired, Exception) as exc:
+        logger.debug(f"Vector conversion (gs+pdftocairo) failed: {exc}")
+        return None
+    finally:
+        for p in (tmp_pdf, tmp_svg):
+            if p:
+                try:
+                    Path(p).unlink(missing_ok=True)
+                except Exception:
+                    pass
 
 
 def parse_eps(file_path: str) -> Dict[str, Any]:
@@ -689,38 +715,61 @@ def validate_geometry(msp) -> Dict[str, Any]:
     """
     Validate if geometry is suitable for laser cutting using GeometryEngine.
     """
+    # ezdxf returns Vec3 for point attrs, which doesn't support slicing ([:2]
+    # raises "TypeError: an integer is required"). Use explicit .x/.y instead.
+    def _xy(p):
+        return (p.x, p.y)
+
     segments = []
     for entity in msp:
         if entity.dxftype() == 'LINE':
-            segments.append((entity.dxf.start[:2], entity.dxf.end[:2]))
+            segments.append((_xy(entity.dxf.start), _xy(entity.dxf.end)))
         elif entity.dxftype() in ('POLYLINE', 'LWPOLYLINE'):
             # LWPolyline segments
             for sub in entity.virtual_entities():
                 if sub.dxftype() == 'LINE':
-                    segments.append((sub.dxf.start[:2], sub.dxf.end[:2]))
+                    segments.append((_xy(sub.dxf.start), _xy(sub.dxf.end)))
 
     open_paths = GeometryEngine.find_open_paths(segments)
     duplicates = GeometryEngine.detect_duplicates(segments)
-    
+
+    # Group findings into single summarised warnings rather than emitting one
+    # entry per endpoint/segment (which produced thousands of items + a 0 score).
     warnings = []
-    for op in open_paths:
+    if open_paths:
         warnings.append({
             "code": "OPEN_PATH",
-            "message": f"Unclosed loop near {op['location']}",
-            "severity": "warning"
+            "message": (
+                f"{len(open_paths)} open contour endpoint(s) detected. Common for "
+                "engraving/text; close contours that are meant to be cut through."
+            ),
+            "severity": "info",
+            "count": len(open_paths),
         })
-    
+
     if duplicates:
         warnings.append({
             "code": "DUPLICATE_LINES",
-            "message": f"Detected {len(duplicates)} duplicate lines (double cutting risk)",
-            "severity": "info"
+            "message": f"Detected {len(duplicates)} duplicate line(s) (double-cutting risk)",
+            "severity": "warning",
+            "count": len(duplicates),
         })
 
+    # Proportionate score: open contours are advisory (cosmetic), duplicates are a
+    # mild capped warning. Geometry that loads is, by default, cuttable.
+    score = 100.0
+    if open_paths:
+        score -= min(6.0, 2.0)            # cosmetic, flat small cost
+    if duplicates:
+        score -= min(15.0, 6.0 + len(duplicates) * 0.1)
+    health_score = int(max(0, min(100, round(score))))
+
     return {
-        "is_valid": len(open_paths) == 0,
+        # Open contours alone no longer make geometry "invalid"; only an outright
+        # parse/empty failure would (handled by callers). Keep duplicates advisory.
+        "is_valid": True,
         "warnings": warnings,
-        "health_score": max(0, 100 - (len(open_paths) * 10) - (len(duplicates) * 2))
+        "health_score": health_score,
     }
 
 
@@ -844,15 +893,95 @@ def _default_parse_result(file_path: str, fmt: str, error: str) -> Dict[str, Any
     }
 
 
+# Maximum number of distinct issue entries returned to the UI. Findings are
+# already grouped by code (each carries a `count`), so this just guards against
+# an unbounded list if many *different* problem types are detected.
+_MAX_ISSUES_RETURNED = 12
+
+# Codes that represent genuine, hard blockers for laser cutting. Only these can
+# drive the score into the "fix before cutting" range. Everything else is an
+# advisory the operator can usually ignore.
+_BLOCKER_CODES = {
+    "read_failed",
+    "raster_image",
+    "text_not_path",
+    "empty_geometry",
+    "zero_size",
+    "self_intersection",
+    "out_of_bounds",
+}
+
+_SEVERITY_RANK = {"error": 0, "warning": 1, "info": 2}
+
+
+def _score_issues(issues: list) -> int:
+    """Turn a list of grouped findings into a sane 0-100 health score.
+
+    Design goals (see bug report):
+      * Open paths / fills and other high-frequency advisories must NOT tank the
+        score. They are common in real, perfectly-cuttable art.
+      * Only genuine blockers (raster images, live text, unreadable/empty/zero-size
+        geometry, self-intersections, out-of-bounds) can pull the score low.
+      * Penalties use diminishing returns and per-bucket caps, so 1 issue and
+        10,000 issues of the same kind land in a similar place — a typical
+        multi-path design stays in the 70-100 band.
+    """
+    blocker_count = 0  # number of distinct blocker *types* present
+    blocker_instances = 0
+    warning_types = 0
+    info_types = 0
+
+    for i in issues:
+        sev = i.get("severity", "info")
+        code = i.get("code", "")
+        cnt = max(1, int(i.get("count", 1) or 1))
+        if code in _BLOCKER_CODES or (sev == "error" and code not in _BLOCKER_CODES):
+            # Treat any remaining hard "error" as a blocker too, but blockers are
+            # what matter — count distinct types and total instances separately.
+            if code in _BLOCKER_CODES or sev == "error":
+                blocker_count += 1
+                blocker_instances += cnt
+        elif sev == "warning":
+            warning_types += 1
+        else:
+            info_types += 1
+
+    score = 100.0
+
+    # Blockers: heavy but bounded. First blocker type costs the most; additional
+    # types cost less. A handful of duplicated blocker instances add a little.
+    if blocker_count:
+        score -= 42 + 18 * (blocker_count - 1)        # 42, 60, 78, ... capped below
+        score -= min(15.0, (blocker_instances - blocker_count) * 0.5)
+
+    # Warnings (e.g. tiny features): mild, capped. Even many warning *types* only
+    # shave a limited amount.
+    if warning_types:
+        score -= min(18.0, 6.0 + 3.0 * (warning_types - 1))
+
+    # Info advisories (open paths, fills, overlaps, layer notes): cosmetic. They
+    # cost almost nothing no matter how many instances exist.
+    if info_types:
+        score -= min(6.0, 2.0 * info_types)
+
+    return int(max(0, min(100, round(score))))
+
+
 def validate_laser_cuttable(file_path: str) -> Dict[str, Any]:
     """
     Heuristic validation of SVG/DXF files for laser cutting suitability.
 
     Returns: {
-      "score": 0-100,
+      "score": 0-100,            # primary cuttability health score
+      "health_score": 0-100,     # alias of score (consumed by the upload API)
+      "is_valid": bool,          # False only when a genuine blocker is present
       "issues": [{"severity": "error|warning|info", "code": "...", "message": "...", "count": N}],
-      "summary": "N issues found"
+      "summary": "..."
     }
+
+    The issue list is grouped by code (each entry carries a `count`) and capped,
+    so a busy multi-path design surfaces a short, readable list — never thousands
+    of duplicate findings.
     """
     ext = Path(file_path).suffix.lower()
     issues: list[Dict[str, Any]] = []
@@ -878,15 +1007,42 @@ def validate_laser_cuttable(file_path: str) -> Dict[str, Any]:
             "count": 1,
         }]
 
-    errors = sum(i.get("count", 1) for i in issues if i["severity"] == "error")
-    warnings = sum(i.get("count", 1) for i in issues if i["severity"] == "warning")
-    infos = sum(i.get("count", 1) for i in issues if i["severity"] == "info")
+    score = _score_issues(issues)
 
-    score = max(0, min(100, 100 - errors * 15 - warnings * 5 - infos * 1))
-    total = errors + warnings + infos
-    summary = "Looks good for laser cutting!" if total == 0 else f"{total} issue{'s' if total != 1 else ''} found"
+    # Sort errors first, then warnings, then info; cap the visible list.
+    issues.sort(key=lambda i: _SEVERITY_RANK.get(i.get("severity", "info"), 3))
+    has_blocker = any(
+        i.get("code") in _BLOCKER_CODES or i.get("severity") == "error" for i in issues
+    )
+    if len(issues) > _MAX_ISSUES_RETURNED:
+        hidden = len(issues) - _MAX_ISSUES_RETURNED
+        issues = issues[:_MAX_ISSUES_RETURNED]
+        issues.append({
+            "severity": "info",
+            "code": "more_issues",
+            "message": f"+{hidden} more minor advisories not shown.",
+            "count": hidden,
+        })
 
-    return {"score": score, "issues": issues, "summary": summary}
+    # Human summary: lead with whether it is cut-ready, then the headline counts.
+    distinct = len(issues)
+    if distinct == 0:
+        summary = "Looks good for laser cutting!"
+    elif has_blocker:
+        summary = f"{distinct} item{'s' if distinct != 1 else ''} to review before cutting"
+    else:
+        summary = (
+            f"{distinct} advisor{'ies' if distinct != 1 else 'y'} "
+            "(safe to cut — informational only)"
+        )
+
+    return {
+        "score": score,
+        "health_score": score,
+        "is_valid": not has_blocker,
+        "issues": issues,
+        "summary": summary,
+    }
 
 
 def _validate_svg(file_path: str) -> list:
@@ -911,7 +1067,7 @@ def _validate_svg(file_path: str) -> list:
                 fill_count += 1
     if fill_count > 0:
         issues.append({
-            "severity": "warning",
+            "severity": "info",
             "code": "has_fills",
             "message": "Filled shapes detected. Lasers only cut outlines — fills will be ignored or engraved.",
             "count": fill_count,
@@ -971,10 +1127,18 @@ def _validate_svg(file_path: str) -> list:
                 path_bboxes.append((min(xs), min(ys), max(xs), max(ys)))
 
     if open_path_count > 0:
+        # Open paths are extremely common and frequently intentional (engraving,
+        # lettering, line-art, score lines). They are NOT a cutting blocker, so we
+        # surface them as a single informational note rather than thousands of
+        # score-destroying "errors".
         issues.append({
-            "severity": "error",
+            "severity": "info",
             "code": "open_path",
-            "message": "Open paths (no Z close command) — laser may not cut through properly.",
+            "message": (
+                "Open paths detected (no explicit close command). This is normal for "
+                "engraving, text, or score lines. If these are meant to be cut-through "
+                "outlines, make sure each contour is closed."
+            ),
             "count": open_path_count,
         })
 

@@ -356,9 +356,31 @@ async def approve_vendor(
     if not vendor:
         raise HTTPException(404, "Vendor not found")
 
+    was_verified = vendor.is_verified
     vendor.is_verified = body.is_verified
     await db.commit()
     await db.refresh(vendor)
+
+    # Notify the vendor's user about approval / revocation
+    if body.is_verified != was_verified and vendor.user_id:
+        from app.services.notification_service import notify_user
+        if body.is_verified:
+            title = "Vendor application approved"
+            msg = "Your vendor application was approved. You can now receive orders."
+            ntype = "success"
+        else:
+            title = "Vendor access revoked"
+            msg = "Your vendor access has been revoked/declined."
+            ntype = "warning"
+        await notify_user(
+            db,
+            vendor.user_id,
+            title,
+            msg,
+            type=ntype,
+            link="/vendor/dashboard",
+        )
+        await db.commit()
 
     user_result = await db.execute(select(User).where(User.id == vendor.user_id))
     user = user_result.scalar_one_or_none()
@@ -401,6 +423,10 @@ class SADesignOut(BaseModel):
 
 
 class SADesignCreate(BaseModel):
+    # Optional UUID string of an uploaded vector file (uploaded_files.file_id).
+    # Marketplace designs created by a super admin may have no source CAD file,
+    # so this is optional. When provided it is resolved to the integer FK.
+    file_id: Optional[str] = None
     title: str
     description: Optional[str] = None
     category: str = "other"
@@ -475,11 +501,42 @@ async def create_design(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_super_admin),
 ):
-    """Create a new design directly (without uploading a file)."""
+    """Create a new design directly (optionally without uploading a file).
+
+    A super-admin marketplace design may have no source CAD file. ``file_id``
+    in the request is the UUID string of an uploaded vector file
+    (``uploaded_files.file_id``); it is resolved here to the integer FK that
+    ``designs.file_id`` references. When omitted we fall back to an existing
+    uploaded file as a placeholder, because the live ``designs.file_id``
+    column is NOT NULL (the table predates the model becoming nullable).
+    """
     import json as _json
+
+    # Resolve the optional UUID file_id to the integer uploaded_files PK.
+    resolved_file_id: Optional[int] = None
+    if body.file_id:
+        file_result = await db.execute(
+            select(UploadedFile).where(UploadedFile.file_id == body.file_id)
+        )
+        uploaded = file_result.scalar_one_or_none()
+        if uploaded is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"No uploaded file found for file_id '{body.file_id}'",
+            )
+        resolved_file_id = uploaded.id
+    else:
+        # No source file supplied. The live designs.file_id column is NOT NULL,
+        # so reference an existing uploaded file as a safe placeholder rather
+        # than violating the constraint with a NULL insert.
+        placeholder = await db.execute(
+            select(UploadedFile.id).order_by(UploadedFile.id).limit(1)
+        )
+        resolved_file_id = placeholder.scalar_one_or_none()
 
     design = Design(
         creator_id=admin.id,
+        file_id=resolved_file_id,
         title=body.title,
         description=body.description,
         category=body.category,

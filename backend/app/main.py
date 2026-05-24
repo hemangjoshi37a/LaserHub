@@ -3,6 +3,7 @@ LaserHub - Laser Cutting Cost Calculator
 Backend API
 """
 
+import re
 import warnings
 from contextlib import asynccontextmanager
 
@@ -29,6 +30,32 @@ from app.middleware.rate_limiter import limiter
 logger = get_logger(__name__)
 
 DEFAULT_SECRET_KEY = "change-this-secret-key-in-production"
+
+# Single source of truth for allowed CORS origins. Used by CORSMiddleware AND by the
+# exception handlers below — unhandled 500s and exception-handler responses bypass
+# CORSMiddleware (they're emitted by Starlette's outermost ServerErrorMiddleware), so we
+# must re-apply the same origin policy manually or the browser sees an opaque CORS error
+# instead of the real error body.
+CORS_ORIGIN_REGEX = r"^(https?://localhost(:\d+)?|https?://127\.0\.0\.1(:\d+)?|https://laserhub\.hjlabs\.in)$"
+_CORS_ORIGIN_PATTERN = re.compile(CORS_ORIGIN_REGEX)
+
+
+def _cors_headers(request: Request) -> dict[str, str]:
+    """Build CORS response headers mirroring CORSMiddleware for a credentialed setup.
+
+    Echoes the request Origin only when it matches the allowed-origins policy (never a
+    wildcard, since credentials are allowed) and advertises Vary: Origin for caches.
+    Returns an empty dict when there's no Origin or it isn't allowed, so we never leak
+    CORS headers to disallowed origins.
+    """
+    origin = request.headers.get("origin")
+    if origin and _CORS_ORIGIN_PATTERN.match(origin):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
 
 # Initialize Sentry before app creation so startup errors are captured.
 if settings.SENTRY_DSN:
@@ -151,11 +178,38 @@ async def _http_exception_handler(request: Request, exc: HTTPException) -> JSONR
             user_agent=request.headers.get("user-agent"),
             had_auth_header=bool(request.headers.get("authorization")),
         )
-    headers = getattr(exc, "headers", None)
+    # Merge any exception-supplied headers (e.g. WWW-Authenticate on 401) with CORS
+    # headers. Exception-handler responses bypass CORSMiddleware, so without this an
+    # auth failure would also surface as an opaque CORS error in the browser.
+    headers = dict(getattr(exc, "headers", None) or {})
+    headers.update(_cors_headers(request))
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers=headers,
+        headers=headers or None,
+    )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Convert any unhandled exception into a CORS-aware 500 JSON response.
+
+    Truly unhandled errors are emitted by Starlette's ServerErrorMiddleware, which sits
+    OUTSIDE both CORSMiddleware and the security-headers middleware. The resulting bare
+    500 therefore lacks Access-Control-Allow-Origin, so browsers report a misleading CORS
+    failure (net::ERR_FAILED) and the frontend can't read the error. We log the full
+    traceback and return a *handled* JSONResponse that re-attaches the CORS headers.
+    """
+    logger.error(
+        "unhandled_exception",
+        path=request.url.path,
+        method=request.method,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=_cors_headers(request) or None,
     )
 
 
@@ -178,7 +232,7 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^(https?://localhost(:\d+)?|https?://127\.0\.0\.1(:\d+)?|https://laserhub\.hjlabs\.in)$",
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

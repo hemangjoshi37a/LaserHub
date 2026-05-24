@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Mail, X, Loader2, Send, Tag, Search } from 'lucide-react';
+import { Users, Mail, X, Loader2, Send, Tag, Search, Ticket, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   crmApi,
@@ -7,6 +7,7 @@ import {
   type CrmCustomerDetail,
   type CustomerTier,
 } from '../services';
+import { useCurrencyStore, formatPrice } from '../store/currencyStore';
 
 const TIER_STYLES: Record<CustomerTier, { bg: string; color: string; label: string }> = {
   bronze: { bg: '#f1e3d3', color: '#7c4a1e', label: 'Bronze' },
@@ -34,11 +35,12 @@ function TierBadge({ tier }: { tier: CustomerTier }) {
   );
 }
 
-function formatInr(n: number): string {
-  return `₹${(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-}
+// Slider bounds in the same (USD) base unit as Order.total_amount on the backend.
+const MIN_SPENT_MAX = 5000;
+const MIN_SPENT_STEP = 50;
 
 export const CustomersCRM: React.FC = () => {
+  const { currency } = useCurrencyStore();
   const [customers, setCustomers] = useState<CrmCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [tier, setTier] = useState<CustomerTier | ''>('');
@@ -50,6 +52,7 @@ export const CustomersCRM: React.FC = () => {
   const [notesDraft, setNotesDraft] = useState('');
   const [tagsDraft, setTagsDraft] = useState('');
   const [showBroadcast, setShowBroadcast] = useState(false);
+  const [showDiscount, setShowDiscount] = useState(false);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -123,11 +126,14 @@ export const CustomersCRM: React.FC = () => {
         <div>
           <h1 className="adm-page-title">Customers</h1>
           <p className="adm-page-sub">
-            {stats.total} customers · {formatInr(stats.totalRev)} lifetime revenue ·{' '}
+            {stats.total} customers · {formatPrice(stats.totalRev, currency)} lifetime revenue ·{' '}
             {stats.platinum} platinum
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="sa-btn sa-btn--ghost-sm" onClick={() => setShowDiscount(true)}>
+            <Ticket size={14} /> Discount Code
+          </button>
           <button className="sa-btn sa-btn--primary-sm" onClick={() => setShowBroadcast(true)}>
             <Mail size={14} /> Bulk Email
           </button>
@@ -181,12 +187,12 @@ export const CustomersCRM: React.FC = () => {
               fontSize: '0.875rem',
             }}
           >
-            Min spent: {formatInr(minSpent)}
+            Min spent: {formatPrice(minSpent, currency)}
             <input
               type="range"
               min={0}
-              max={100000}
-              step={1000}
+              max={MIN_SPENT_MAX}
+              step={MIN_SPENT_STEP}
               value={minSpent}
               onChange={(e) => setMinSpent(Number(e.target.value))}
             />
@@ -234,8 +240,8 @@ export const CustomersCRM: React.FC = () => {
                     <td className="adm-cell-medium">{c.name || '—'}</td>
                     <td className="adm-cell-sub">{c.email}</td>
                     <td>{c.order_count}</td>
-                    <td className="adm-cell-bold">{formatInr(c.total_spent)}</td>
-                    <td>{formatInr(c.avg_order_value)}</td>
+                    <td className="adm-cell-bold">{formatPrice(c.total_spent, currency)}</td>
+                    <td>{formatPrice(c.avg_order_value, currency)}</td>
                     <td>
                       <TierBadge tier={c.tier} />
                     </td>
@@ -278,6 +284,10 @@ export const CustomersCRM: React.FC = () => {
       {showBroadcast && (
         <BroadcastModal onClose={() => setShowBroadcast(false)} />
       )}
+
+      {showDiscount && (
+        <DiscountModal onClose={() => setShowDiscount(false)} />
+      )}
     </div>
   );
 };
@@ -294,6 +304,7 @@ function CustomerDetailPanel(props: {
   onClose: () => void;
 }) {
   const { email, detail, loading, notesDraft, tagsDraft, setNotesDraft, setTagsDraft, onSave, onClose } = props;
+  const { currency } = useCurrencyStore();
   return (
     <>
       <div
@@ -338,7 +349,7 @@ function CustomerDetailPanel(props: {
               <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <TierBadge tier={detail.tier} />
                 <span style={{ fontSize: '0.875rem' }}>
-                  {detail.order_count} orders · {formatInr(detail.total_spent)} spent
+                  {detail.order_count} orders · {formatPrice(detail.total_spent, currency)} spent
                 </span>
               </div>
             </div>
@@ -387,7 +398,7 @@ function CustomerDetailPanel(props: {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <strong>{o.order_number}</strong>
-                    <span>{formatInr(o.total_amount)}</span>
+                    <span>{formatPrice(o.total_amount, currency)}</span>
                   </div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                     {o.created_at ? new Date(o.created_at).toLocaleDateString() : '—'} ·{' '}
@@ -404,6 +415,7 @@ function CustomerDetailPanel(props: {
 }
 
 function BroadcastModal({ onClose }: { onClose: () => void }) {
+  const { currency } = useCurrencyStore();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [tier, setTier] = useState<CustomerTier | ''>('');
@@ -484,12 +496,12 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
             <option value="platinum">Platinum</option>
           </select>
           <label style={{ fontSize: '0.875rem' }}>
-            Min spent: {formatInr(minSpent)}
+            Min spent: {formatPrice(minSpent, currency)}
             <input
               type="range"
               min={0}
-              max={100000}
-              step={1000}
+              max={MIN_SPENT_MAX}
+              step={MIN_SPENT_STEP}
               value={minSpent}
               onChange={(e) => setMinSpent(Number(e.target.value))}
             />
@@ -503,6 +515,149 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
             {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />} Send
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscountModal({ onClose }: { onClose: () => void }) {
+  const [percentOff, setPercentOff] = useState(10);
+  const [tier, setTier] = useState<CustomerTier | ''>('');
+  const [expiresDays, setExpiresDays] = useState(30);
+  const [creating, setCreating] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    if (percentOff <= 0 || percentOff > 100) {
+      toast.error('Discount must be between 1 and 100%');
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await crmApi.createDiscountCode({
+        percent_off: percentOff,
+        tier: tier || undefined,
+        expires_days: expiresDays,
+      });
+      setCode(res.code);
+      toast.success('Discount code created');
+    } catch {
+      toast.error('Failed to create code');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const copyCode = async () => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.5)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-primary, #fff)',
+          borderRadius: 8,
+          width: 'min(420px, 95%)',
+          padding: '1.25rem',
+        }}
+      >
+        <h3 style={{ marginTop: 0 }}>Create Discount Code</h3>
+        {code ? (
+          <>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              Share this code with customers for {percentOff}% off.
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                border: '1px solid var(--border-color)',
+                borderRadius: 6,
+                padding: '0.6rem 0.75rem',
+                fontFamily: 'monospace',
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+              }}
+            >
+              <span style={{ flex: 1 }}>{code}</span>
+              <button className="sa-btn sa-btn--ghost-sm" onClick={copyCode}>
+                <Copy size={14} /> Copy
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="sa-btn sa-btn--primary-sm" onClick={onClose}>
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.75rem' }}>
+              Percent off
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={percentOff}
+              onChange={(e) => setPercentOff(Number(e.target.value))}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border-color)' }}
+            />
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.75rem' }}>
+              Restrict to tier (optional)
+            </label>
+            <select
+              value={tier}
+              onChange={(e) => setTier((e.target.value || '') as CustomerTier | '')}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border-color)' }}
+            >
+              <option value="">All customers</option>
+              <option value="bronze">Bronze</option>
+              <option value="silver">Silver</option>
+              <option value="gold">Gold</option>
+              <option value="platinum">Platinum</option>
+            </select>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.75rem' }}>
+              Expires in (days)
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={expiresDays}
+              onChange={(e) => setExpiresDays(Number(e.target.value))}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border-color)' }}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="sa-btn sa-btn--ghost-sm" onClick={onClose}>
+                Cancel
+              </button>
+              <button className="sa-btn sa-btn--primary-sm" onClick={handleCreate} disabled={creating}>
+                {creating ? <Loader2 size={14} className="spinner" /> : <Ticket size={14} />} Create
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

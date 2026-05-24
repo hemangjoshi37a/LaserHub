@@ -7,7 +7,7 @@ from app.services.cost_calculator import (
     calculate_laser_time,
     calculate_material_cost,
     calculate_total_cost,
-    get_material_rate,
+    calculate_total_cost_v2,
 )
 
 
@@ -103,26 +103,66 @@ class TestTotalCost:
         assert result2["laser_time_cost"] > result1["laser_time_cost"]
 
 
-class TestMaterialRates:
-    """Tests for material rate lookup"""
+class TestTotalCostV2:
+    """Tests for the v2 cost calculation that takes an explicit per-thickness rate.
 
-    def test_acrylic_rate(self):
-        """Test acrylic rate"""
-        rate = get_material_rate("acrylic")
-        assert rate == 0.05
+    The old hardcoded ``get_material_rate`` lookup was removed during a refactor;
+    material rates now live in the DB (Material.rate_per_cm2_mm / MaterialConfig
+    .rate_per_cm2) and are passed straight into ``calculate_total_cost_v2`` as
+    ``rate_per_cm2``. These tests exercise that current equivalent: that the
+    supplied rate drives the material cost and flows through the full breakdown.
+    """
 
-    def test_wood_rate(self):
-        """Test wood rate"""
-        rate = get_material_rate("wood_mdf")
-        assert rate == 0.03
+    def test_complete_calculation(self):
+        """Test complete v2 cost calculation returns full breakdown"""
+        result = calculate_total_cost_v2(
+            area_cm2=100,
+            cut_length_mm=500,
+            thickness_mm=3,
+            rate_per_cm2=0.15,
+            cut_speed_mm_min=500,
+            quantity=1,
+            setup_fee=5.0,
+            tax_rate=0.08,
+        )
 
-    def test_unknown_material(self):
-        """Test unknown material returns default"""
-        rate = get_material_rate("unknown")
-        assert rate == 0.05  # Default rate
+        for key in (
+            "material_cost",
+            "laser_time_cost",
+            "energy_cost",
+            "setup_fee",
+            "subtotal",
+            "tax",
+            "total",
+        ):
+            assert key in result
+        assert result["total"] > 0
 
-    def test_case_insensitive(self):
-        """Test case insensitivity"""
-        rate1 = get_material_rate("ACRYLIC")
-        rate2 = get_material_rate("acrylic")
-        assert rate1 == rate2
+    def test_rate_drives_material_cost(self):
+        """Material cost should equal area_cm2 * rate_per_cm2 (rate replaces the
+        old per-material lookup)."""
+        result = calculate_total_cost_v2(
+            area_cm2=100,
+            cut_length_mm=500,
+            thickness_mm=3,
+            rate_per_cm2=0.05,
+            cut_speed_mm_min=500,
+            quantity=1,
+        )
+        # 100 cm² * 0.05 = 5.0
+        assert result["material_cost"] == 5.0
+
+    def test_higher_rate_costs_more(self):
+        """A higher per-cm² rate must yield a higher material cost."""
+        cheap = calculate_total_cost_v2(100, 500, 3, 0.03, 500, quantity=1)
+        pricey = calculate_total_cost_v2(100, 500, 3, 0.25, 500, quantity=1)
+        assert pricey["material_cost"] > cheap["material_cost"]
+
+    def test_quantity_multiplier(self):
+        """Quantity multiplies per-piece costs while setup fee stays fixed."""
+        result1 = calculate_total_cost_v2(100, 500, 3, 0.05, 500, quantity=1)
+        result2 = calculate_total_cost_v2(100, 500, 3, 0.05, 500, quantity=2)
+
+        assert result2["material_cost"] > result1["material_cost"]
+        assert result2["laser_time_cost"] > result1["laser_time_cost"]
+        assert result2["setup_fee"] == result1["setup_fee"]

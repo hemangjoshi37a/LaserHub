@@ -66,20 +66,32 @@ self.addEventListener('push', (event: PushEvent) => {
 // Open the relevant page when the user clicks on a notification
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
-  const targetUrl: string = event.notification.data?.url || '/';
+
+  // The backend sends `url` as a relative path (e.g. "/orders/123"). Resolve it
+  // against the SW scope origin so we can compare against absolute client URLs.
+  const rawUrl: string = event.notification.data?.url || '/';
+  const targetUrl = new URL(rawUrl, self.location.origin);
+
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // Focus an existing window/tab at the target URL if possible
+        // Prefer focusing an already-open tab. Match on path (ignoring origin
+        // quirks) and, when possible, navigate it to the exact target.
         for (const client of clientList) {
-          if (client.url === targetUrl && 'focus' in client) {
+          const clientUrl = new URL(client.url);
+          if (clientUrl.origin === targetUrl.origin && 'focus' in client) {
+            if (clientUrl.pathname !== targetUrl.pathname && 'navigate' in client) {
+              return (client as WindowClient).navigate(targetUrl.href).then((c) =>
+                c ? c.focus() : client.focus()
+              );
+            }
             return client.focus();
           }
         }
-        // Otherwise open a new window
+        // Otherwise open a new window at the target URL.
         if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
+          return self.clients.openWindow(targetUrl.href);
         }
       })
   );

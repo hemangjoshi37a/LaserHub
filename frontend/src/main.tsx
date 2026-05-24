@@ -3,7 +3,11 @@ import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App.tsx'
 import { ErrorFallback } from './components/ErrorFallback'
+import { initTheme } from './hooks/useTheme'
 import './index.css'
+
+// Apply the persisted/system theme before first paint to avoid a flash.
+initTheme()
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 

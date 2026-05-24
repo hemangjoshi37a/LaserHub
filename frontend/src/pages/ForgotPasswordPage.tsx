@@ -13,13 +13,20 @@ export const ForgotPasswordPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      toast.error('Please enter your email address.');
+      return;
+    }
     setIsLoading(true);
     try {
       await authApi.requestPasswordReset(email);
+      // Backend always responds 200 to avoid leaking which emails exist, so the
+      // confirmation is intentionally neutral ("if an account exists").
       setIsSent(true);
-      toast.success('Reset link sent if account exists');
     } catch (error) {
-      toast.error('Failed to send reset link');
+      // The only realistic failures here are network/rate-limit, not a missing
+      // account — keep the copy accurate and non-scary.
+      toast.error('Something went wrong. Please try again in a moment.');
     } finally {
       setIsLoading(false);
     }
@@ -75,6 +82,7 @@ export const ForgotPasswordPage: React.FC = () => {
                     <input
                       id="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

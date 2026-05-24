@@ -546,6 +546,20 @@ class VendorUpdate(BaseModel):
             return v
         return sanitize_text(v)
 
+    @field_validator(
+        "avg_turnaround_days", "min_order_amount",
+        "gmb_rating", "gmb_review_count",
+        mode="before",
+    )
+    @classmethod
+    def _empty_str_to_none(cls, v):
+        # The storefront form may submit "" for cleared numeric fields.
+        # Treat blank/whitespace-only strings as null so an empty value can
+        # never fail float/int parsing and 422 the whole save.
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
     @field_validator("gstin", mode="before")
     @classmethod
     def _gstin_check(cls, v):
@@ -594,6 +608,23 @@ class VendorResponse(BaseModel):
     shipping_policy: Optional[str] = None
     specialties: Optional[List[str]] = None
     created_at: datetime
+
+    # These columns are nullable at the DB level but the API contract exposes
+    # them as plain numbers. Coerce a null/blank stored value back to its
+    # default so serialization never fails (and the response stays a number).
+    @field_validator("avg_turnaround_days", mode="before")
+    @classmethod
+    def _default_turnaround(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return 3.0
+        return v
+
+    @field_validator("min_order_amount", mode="before")
+    @classmethod
+    def _default_min_order(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return 0.0
+        return v
 
     # Contact / verification
     phone_country_code: Optional[str] = None

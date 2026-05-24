@@ -33,25 +33,46 @@ def _abs_thumb(request: Request, thumb: str | None) -> str | None:
     return f"{base}{thumb}"
 
 
+def _not_test(*flagged_models):
+    """Build filter expressions that exclude test/internal/demo records.
+
+    Returns a list of WHERE clauses, one per is_internal/is_demo column on the
+    given model(s). Uses ``IS NOT TRUE`` semantics so that NULL/None is treated
+    as NOT excluded — only rows explicitly flagged True are dropped. Used to keep
+    QA/internal seed data out of public-facing listings while leaving admin
+    endpoints unfiltered.
+
+    The ``Design`` model has no such flags, so design visibility is gated on its
+    creator (``User``) and its listings' ``Vendor``/``Material`` flags instead.
+    """
+    clauses = []
+    for model in flagged_models:
+        if hasattr(model, "is_internal"):
+            clauses.append(model.is_internal.isnot(True))
+        if hasattr(model, "is_demo"):
+            clauses.append(model.is_demo.isnot(True))
+    return clauses
+
+
 # === Homepage / Featured ===
 
 @router.get("/featured")
 async def get_featured_content(request: Request, db: AsyncSession = Depends(get_db)):
     """Get featured content for marketplace homepage"""
-    # Featured designs
+    # Featured designs — exclude designs created by internal/demo (QA) users
     feat_designs = await db.execute(
         select(Design, User.name)
         .join(User, Design.creator_id == User.id)
-        .where(Design.is_public == True, Design.is_featured == True)
+        .where(Design.is_public == True, Design.is_featured == True, *_not_test(User))
         .order_by(desc(Design.likes_count))
         .limit(8)
     )
 
-    # Popular designs
+    # Popular designs — exclude designs created by internal/demo (QA) users
     pop_designs = await db.execute(
         select(Design, User.name)
         .join(User, Design.creator_id == User.id)
-        .where(Design.is_public == True)
+        .where(Design.is_public == True, *_not_test(User))
         .order_by(desc(Design.likes_count))
         .limit(12)
     )
@@ -59,7 +80,7 @@ async def get_featured_content(request: Request, db: AsyncSession = Depends(get_
     # Top vendors
     top_vendors = await db.execute(
         select(Vendor)
-        .where(Vendor.is_active == True, Vendor.is_internal == False, Vendor.is_demo == False)
+        .where(Vendor.is_active == True, *_not_test(Vendor))
         .order_by(desc(Vendor.rating))
         .limit(6)
     )
@@ -68,20 +89,26 @@ async def get_featured_content(request: Request, db: AsyncSession = Depends(get_
     recent_listings = await db.execute(
         select(DesignListing, Design.title, Vendor.shop_name, Material.name, Design.thumbnail_url)
         .join(Design, DesignListing.design_id == Design.id)
+        .join(User, Design.creator_id == User.id)
         .join(Vendor, DesignListing.vendor_id == Vendor.id)
         .join(Material, DesignListing.material_id == Material.id)
         .where(
             DesignListing.is_active == True,
-            Vendor.is_internal == False, Vendor.is_demo == False,
-            Material.is_internal == False, Material.is_demo == False
+            *_not_test(User, Vendor, Material),
         )
         .order_by(desc(DesignListing.created_at))
         .limit(12)
     )
 
-    # Stats — query real counts from DB
-    design_count = (await db.execute(select(func.count(Design.id)).where(Design.is_public == True))).scalar() or 0
-    vendor_count = (await db.execute(select(func.count(Vendor.id)).where(Vendor.is_active == True, Vendor.is_internal == False, Vendor.is_demo == False))).scalar() or 0
+    # Stats — query real counts from DB (public-facing, so exclude test records)
+    design_count = (await db.execute(
+        select(func.count(Design.id))
+        .join(User, Design.creator_id == User.id)
+        .where(Design.is_public == True, *_not_test(User))
+    )).scalar() or 0
+    vendor_count = (await db.execute(
+        select(func.count(Vendor.id)).where(Vendor.is_active == True, *_not_test(Vendor))
+    )).scalar() or 0
     order_count = (await db.execute(select(func.count(Order.id)))).scalar() or 0
 
     return {
@@ -184,7 +211,7 @@ async def browse_designs(
             DesignListing,
             (DesignListing.design_id == Design.id) & (DesignListing.is_active == True),
         )
-        .where(Design.is_public == True)
+        .where(Design.is_public == True, *_not_test(User))
         .group_by(Design.id, User.name)
     )
 
@@ -241,7 +268,7 @@ async def get_design_detail(design_id: int, request: Request, db: AsyncSession =
     result = await db.execute(
         select(Design, User.name)
         .join(User, Design.creator_id == User.id)
-        .where(Design.id == design_id)
+        .where(Design.id == design_id, *_not_test(User))
     )
     row = result.first()
     if not row:
@@ -255,10 +282,9 @@ async def get_design_detail(design_id: int, request: Request, db: AsyncSession =
         .join(Vendor, DesignListing.vendor_id == Vendor.id)
         .join(Material, DesignListing.material_id == Material.id)
         .where(
-            DesignListing.design_id == design_id, 
+            DesignListing.design_id == design_id,
             DesignListing.is_active == True,
-            Vendor.is_internal == False, Vendor.is_demo == False,
-            Material.is_internal == False, Material.is_demo == False
+            *_not_test(Vendor, Material),
         )
         .order_by(DesignListing.price)
     )
@@ -388,7 +414,7 @@ async def compare_vendors(
             VendorMaterial.material_id == material_id,
             VendorMaterial.thickness_mm == thickness_mm,
             Vendor.is_active == True,
-            Vendor.is_internal == False, Vendor.is_demo == False
+            *_not_test(Vendor),
         )
     )
 

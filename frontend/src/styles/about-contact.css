@@ -6,7 +6,8 @@
 }
 
 .about-hero {
-  background: var(--nav-bg);
+  /* Fixed dark gradient so the white hero text stays readable in light mode. */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: white;
   padding: 4rem 1.5rem 3.5rem;
   text-align: center;
@@ -286,7 +287,8 @@
 }
 
 .about-cta-banner {
-  background: var(--nav-bg);
+  /* Fixed dark gradient so the white CTA text stays readable in light mode. */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   border-radius: 12px;
   padding: 2.5rem 2rem;
   text-align: center;
@@ -315,7 +317,9 @@
 }
 
 .contact-hero {
-  background: var(--nav-bg);
+  /* Fixed dark gradient (not var(--nav-bg), which flips white in light mode and
+     would hide the white hero text). A dark branded hero reads well on both themes. */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: white;
   padding: 3.5rem 1.5rem 3rem;
   text-align: center;

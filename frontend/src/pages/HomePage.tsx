@@ -82,7 +82,6 @@ export const HomePage: React.FC = () => {
     setFileAnalysis,
     setSelectedMaterial,
     setSelectedThickness,
-    selectedVendor,
     setSelectedVendor,
   } = useAppStore();
   const { isAuthenticated } = useAuthStore();
@@ -153,14 +152,23 @@ export const HomePage: React.FC = () => {
     }
   }, [qpDesignId, qpFileIdDirect, uploadedFile, setUploadedFile, setFileAnalysis]);
 
+  // Sync local `step` to the URL's `?step=` param ONLY when the param itself
+  // changes (e.g. the user opens a fresh deep link). Crucially we must NOT
+  // depend on local `step`: doing so made this effect re-fire after every
+  // in-wizard `setStep(...)` and immediately snap `step` back to the (stale,
+  // never-updated) query value — silently no-op'ing "Next" for any order that
+  // arrived via `?step=2` (the marketplace-design flow). Tracking the last
+  // applied param value lets us advance freely once hydrated from the URL.
+  const lastAppliedQpStep = React.useRef<string | null>(null);
   useEffect(() => {
-    if (qpStep) {
+    if (qpStep && qpStep !== lastAppliedQpStep.current) {
+      lastAppliedQpStep.current = qpStep;
       const s = Number(qpStep);
-      if (!isNaN(s) && s !== step) {
+      if (!isNaN(s)) {
         setStep(s);
       }
     }
-  }, [qpStep, step]);
+  }, [qpStep]);
 
   // Pre-select material + thickness from query params
   useEffect(() => {
@@ -348,8 +356,13 @@ export const HomePage: React.FC = () => {
           margin: '0.75rem auto 1rem',
           maxWidth: 1100,
           padding: '0.85rem 1.1rem',
-          background: 'var(--color-primary-50, #eff6ff)',
-          border: '1px solid var(--color-primary-200, #bfdbfe)',
+          // Translucent primary tint over the dark theme, with explicit
+          // readable text. (Previously it hardcoded a light background with no
+          // text color, so the inherited near-white theme text rendered
+          // invisibly on it — appearing as an empty white box.)
+          background: 'rgba(59, 130, 246, 0.12)',
+          border: '1px solid rgba(59, 130, 246, 0.45)',
+          color: 'var(--text-primary, #f1f5f9)',
           borderRadius: 8,
           display: 'flex',
           flexDirection: 'column',
@@ -476,6 +489,45 @@ const Step1Upload: React.FC<{
 }> = ({ isAuthenticated, canNext, onNext }) => {
   const [myDesigns, setMyDesigns] = useState<DesignItem[] | null>(null);
   const [loadingDesigns, setLoadingDesigns] = useState(false);
+  const [pickingDesignId, setPickingDesignId] = useState<number | null>(null);
+  const [selectedDesignId, setSelectedDesignId] = useState<number | null>(null);
+  const { setUploadedFile, setFileAnalysis, uploadedFile } = useAppStore();
+
+  // When the file is cleared (e.g. user hits "Replace file"), drop the
+  // selected-design highlight so the tiles reflect the real ready state.
+  useEffect(() => {
+    if (!uploadedFile) setSelectedDesignId(null);
+  }, [uploadedFile]);
+
+  // Pick a saved design: resolve its underlying file_id and seed the same
+  // store state a successful upload sets (uploadedFile + fileAnalysis), which
+  // is what gates the "Next: Configure" button (canNext = !!uploadedFile).
+  const handlePickDesign = async (d: DesignItem) => {
+    if (pickingDesignId !== null) return;
+    setPickingDesignId(d.id);
+    try {
+      const detail = await marketplaceApi.getDesignDetail(d.id);
+      if (!detail?.file_id) {
+        toast.error('This design has no associated file');
+        return;
+      }
+      const analysis = await uploadApi.getFileAnalysis(detail.file_id);
+      setUploadedFile({
+        file_id: analysis.file_id,
+        filename: d.title || `design-${d.id}`,
+        file_size: 0,
+        file_type: (detail.file_info?.file_format || 'svg').toLowerCase(),
+        upload_url: `/api/upload/${detail.file_id}`,
+      });
+      setFileAnalysis(analysis);
+      setSelectedDesignId(d.id);
+      toast.success(`Selected design: ${d.title}`);
+    } catch {
+      toast.error('Could not load this design');
+    } finally {
+      setPickingDesignId(null);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -508,18 +560,46 @@ const Step1Upload: React.FC<{
             <p className="upl-muted">Loading your designs…</p>
           ) : myDesigns && myDesigns.length > 0 ? (
             <div className="upl-my-designs-grid">
-              {myDesigns.slice(0, 8).map((d) => (
-                <div key={d.id} className="upl-design-card" title={d.title}>
-                  <div className="upl-design-thumb">
-                    {d.thumbnail_url ? (
-                      <img src={resolveMediaUrl(d.thumbnail_url)!} alt={d.title} style={{ background: '#fff', padding: 2, borderRadius: 4 }} />
-                    ) : (
-                      <span className="upl-design-thumb-ph">{d.title.charAt(0)}</span>
-                    )}
+              {myDesigns.slice(0, 8).map((d) => {
+                const isSelected = selectedDesignId === d.id;
+                const isPicking = pickingDesignId === d.id;
+                return (
+                  <div
+                    key={d.id}
+                    className={`upl-design-card${isSelected ? ' selected' : ''}`}
+                    title={d.title}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-busy={isPicking}
+                    onClick={() => handlePickDesign(d)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handlePickDesign(d);
+                      }
+                    }}
+                    style={
+                      isSelected
+                        ? { borderColor: 'var(--color-primary)', background: 'var(--color-primary-soft)' }
+                        : isPicking
+                          ? { opacity: 0.6, pointerEvents: 'none' }
+                          : undefined
+                    }
+                  >
+                    <div className="upl-design-thumb">
+                      {d.thumbnail_url ? (
+                        <img src={resolveMediaUrl(d.thumbnail_url)!} alt={d.title} style={{ background: '#fff', padding: 2, borderRadius: 4 }} />
+                      ) : (
+                        <span className="upl-design-thumb-ph">{d.title.charAt(0)}</span>
+                      )}
+                    </div>
+                    <span className="upl-design-title">
+                      {isSelected ? '✓ ' : ''}{d.title}
+                    </span>
                   </div>
-                  <span className="upl-design-title">{d.title}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="upl-muted">No saved designs yet.</p>
@@ -682,12 +762,20 @@ const Step4VendorSelection: React.FC<{
             <p>Direct fulfillment. We pick the best local shop for your order.</p>
             <div className="vendor-sel-badges">
               <Badge variant="success"><Zap size={10} /> Fast Track</Badge>
-              <Badge variant="secondary">Official</Badge>
+              <Badge variant="info">Official</Badge>
             </div>
           </div>
           <div className="vendor-sel-action">
-            <Button variant={selectedVendor === null ? 'primary' : 'ghost'} size="sm">
-              {selectedVendor === null ? 'Selected' : 'Select'}
+            <Button
+              variant={selectedVendor === null ? 'primary' : 'ghost'}
+              size="sm"
+              iconRight={selectedVendor === null ? <ArrowRight size={14} /> : undefined}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelect(null);
+              }}
+            >
+              {selectedVendor === null ? 'Continue' : 'Select'}
             </Button>
           </div>
         </div>
@@ -716,8 +804,16 @@ const Step4VendorSelection: React.FC<{
                   <p className="vendor-sel-desc">{v.description || 'Verified LaserHub manufacturing partner.'}</p>
                 </div>
                 <div className="vendor-sel-action">
-                  <Button variant={selectedVendor?.id === v.id ? 'primary' : 'ghost'} size="sm">
-                    {selectedVendor?.id === v.id ? 'Selected' : 'Select'}
+                  <Button
+                    variant={selectedVendor?.id === v.id ? 'primary' : 'ghost'}
+                    size="sm"
+                    iconRight={selectedVendor?.id === v.id ? <ArrowRight size={14} /> : undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelect(v);
+                    }}
+                  >
+                    {selectedVendor?.id === v.id ? 'Continue' : 'Select'}
                   </Button>
                 </div>
               </div>

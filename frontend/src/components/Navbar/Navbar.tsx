@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap } from 'lucide-react';
+import { Menu, X, Zap, ShoppingBag, Store, ShieldCheck } from 'lucide-react';
 import { NavLinks } from './NavLinks';
 import { NavUserMenu } from './NavUserMenu';
 import { CurrencySwitcher } from '../CurrencySwitcher';
+import { ThemeToggle } from '../ThemeToggle';
 import { useAuthStore } from '../../store/authStore';
-import { isSuperAdmin, isVendor } from '../../utils/roles';
+import { isSuperAdmin } from '../../utils/roles';
 import './Navbar.css';
 
 export const Navbar: React.FC = () => {
@@ -26,7 +27,20 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const logoLink = user ? (isSuperAdmin(user) ? '/admin/sa-overview' : isVendor(user) ? '/vendor/dashboard/dashboard' : '/') : '/';
+  // The brand always returns to the public marketplace home for every user
+  // (customers, vendors, super-admins). The dashboard is reachable via the
+  // avatar menu / "Viewing as" switcher, never by hijacking the logo.
+  const logoLink = '/';
+
+  // Determine which super-admin "view" is currently active from the URL.
+  const path = location.pathname;
+  const activeView = path.startsWith('/admin')
+    ? 'admin'
+    : path.startsWith('/vendor/dashboard')
+      ? 'seller'
+      : path.startsWith('/dashboard')
+        ? 'buyer'
+        : null;
 
   return (
     <nav className={`navbar${isScrolled ? ' scrolled' : ''}`}>
@@ -45,16 +59,40 @@ export const Navbar: React.FC = () => {
             <CurrencySwitcher />
           </div>
 
+          <ThemeToggle />
+
           {user && isSuperAdmin(user) && (
-            <div className="nav-role-switches">
-              <Link to="/dashboard/profile" className="nav-role-btn" title="Buyer View">
-                <Zap size={18} />
+            <div className="nav-role-switches" role="group" aria-label="Viewing as">
+              <span className="nav-role-label">Viewing as:</span>
+              <Link
+                to="/dashboard/profile"
+                className={`nav-role-btn${activeView === 'buyer' ? ' active' : ''}`}
+                title="Buyer View"
+                aria-label="Buyer View"
+                aria-current={activeView === 'buyer' ? 'page' : undefined}
+              >
+                <ShoppingBag size={16} />
+                <span className="nav-role-btn-text">Buyer</span>
               </Link>
-              <Link to="/vendor/dashboard/dashboard" className="nav-role-btn" title="Seller View">
-                <Zap size={18} />
+              <Link
+                to="/vendor/dashboard/dashboard"
+                className={`nav-role-btn${activeView === 'seller' ? ' active' : ''}`}
+                title="Seller View"
+                aria-label="Seller View"
+                aria-current={activeView === 'seller' ? 'page' : undefined}
+              >
+                <Store size={16} />
+                <span className="nav-role-btn-text">Seller</span>
               </Link>
-              <Link to="/admin/sa-overview" className="nav-role-btn" title="Admin View">
-                <Zap size={18} />
+              <Link
+                to="/admin/sa-overview"
+                className={`nav-role-btn${activeView === 'admin' ? ' active' : ''}`}
+                title="Admin View"
+                aria-label="Admin View"
+                aria-current={activeView === 'admin' ? 'page' : undefined}
+              >
+                <ShieldCheck size={16} />
+                <span className="nav-role-btn-text">Admin</span>
               </Link>
             </div>
           )}
